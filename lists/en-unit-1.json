@@ -1,0 +1,33 @@
+{
+  "id": "en-unit-1",
+  "titel": "Unit 1 – It's fun at home",
+  "fach": "Englisch",
+  "typ": "vokabel",
+  "durchlauf": 1,
+  "items": [
+    { "en": "at home", "de": ["zu Hause"] },
+    { "en": "to live", "de": ["wohnen", "leben"] },
+    { "en": "flat", "de": ["Wohnung"] },
+    { "en": "in the street", "de": ["auf der Straße"] },
+    { "en": "family", "de": ["Familie"] },
+    { "en": "house", "de": ["Haus"] },
+    { "en": "door", "de": ["Tür"] },
+    { "en": "bath", "de": ["Bad", "Badewanne"] },
+    { "en": "TV", "de": ["Fernsehen", "Fernseher"] },
+    { "en": "shower", "de": ["Dusche"] },
+    { "en": "chair", "de": ["Stuhl", "Sessel"] },
+    { "en": "cupboard", "de": ["Küchenschrank", "Schrank"] },
+    { "en": "toilet", "de": ["Toilette"] },
+    { "en": "bed", "de": ["Bett"] },
+    { "en": "clock", "de": ["Uhr"] },
+    { "en": "wardrobe", "de": ["Kleiderschrank"] },
+    { "en": "cooker", "de": ["Herd"] },
+    { "en": "table", "de": ["Tisch"] },
+    { "en": "good", "de": ["gut"] },
+    { "en": "biscuit", "de": ["Keks"] },
+    { "en": "under", "de": ["unter"] },
+    { "en": "sister", "de": ["Schwester"] },
+    { "en": "little", "de": ["klein"] },
+    { "en": "brother", "de": ["Bruder"] }
+  ]
+}
