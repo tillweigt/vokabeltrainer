@@ -1,0 +1,33 @@
+{
+  "id": "en-pick-up-a",
+  "titel": "Pick-up A – We're from Greenwich",
+  "fach": "Englisch",
+  "typ": "vokabel",
+  "durchlauf": 1,
+  "items": [
+    { "en": "We're from …", "de": ["Wir sind aus …"] },
+    { "en": "Here's your ball.", "de": ["Hier ist dein Ball."] },
+    { "en": "Hello.", "de": ["Hallo."] },
+    { "en": "I'm …", "de": ["Ich heiße …", "Ich bin …"] },
+    { "en": "You're a nice dog.", "de": ["Du bist ein lieber Hund."] },
+    { "en": "What's your name?", "de": ["Wie heißt du?", "Wie heißen Sie?"] },
+    { "en": "Sorry, my dog is crazy.", "de": ["Tut mir leid, mein Hund ist verrückt."] },
+    { "en": "and", "de": ["und"] },
+    { "en": "My name is …", "de": ["Ich heiße …"] },
+    { "en": "Where are you from?", "de": ["Woher kommst du?", "Woher kommt ihr?", "Woher kommen Sie?"] },
+    { "en": "I'm from …", "de": ["Ich bin aus …"] },
+    { "en": "in", "de": ["in", "im", "rein", "herein"] },
+    { "en": "Are you on holiday in …?", "de": ["Bist du im Urlaub in …?", "Sind Sie im Urlaub in …?", "Seid ihr im Urlaub in …?"] },
+    { "en": "yes", "de": ["ja"] },
+    { "en": "I'm here with my parents.", "de": ["Ich bin mit meinen Eltern hier."] },
+    { "en": "How old are you?", "de": ["Wie alt bist du?", "Wie alt seid ihr?", "Wie alt sind Sie?"] },
+    { "en": "You too?", "de": ["Du auch?", "Sie auch?", "Ihr auch?"] },
+    { "en": "no", "de": ["nein"] },
+    { "en": "the", "de": ["der, die, das"] },
+    { "en": "boy", "de": ["Junge"] },
+    { "en": "girl", "de": ["Mädchen"] },
+    { "en": "me too", "de": ["ich auch"] },
+    { "en": "friend", "de": ["Freund", "Freundin"] },
+    { "en": "he", "de": ["er"] }
+  ]
+}

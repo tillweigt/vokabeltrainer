@@ -3,10 +3,61 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Lerntrainer</title>
+    <title>Vokabeltrainer</title>
+    <link rel="stylesheet" href="style.css">
+    <script>
+      // Zeigt JavaScript-Fehler direkt auf der Seite an. Hilft am iPhone,
+      // wo man ohne Mac keine Konsole sieht.
+      function showFatalError(message) {
+        const box = document.getElementById("error-overlay");
+        if (!box) return;
+        box.textContent += "Fehler: " + message + "\n";
+        box.hidden = false;
+      }
+      window.addEventListener("error", (event) => showFatalError(event.message));
+      window.addEventListener("unhandledrejection", (event) => showFatalError(String(event.reason)));
+    </script>
+    <script type="module" src="js/app.js"></script>
   </head>
   <body>
-    <h1>Hallo Lerntrainer!</h1>
-    <p>Hier entsteht die Vokabel-App.</p>
+    <main>
+      <section id="start">
+        <h1>Vokabeltrainer</h1>
+        <div id="lists"></div>
+        <p id="load-error" class="error" hidden></p>
+      </section>
+
+      <section id="quiz" hidden>
+        <div class="quiz-header">
+          <button id="back" type="button">‹ Listen</button>
+          <span id="mastered-count"></span>
+        </div>
+        <p id="question" class="question"></p>
+        <p id="dots" class="dots"></p>
+        <form id="answer-form">
+          <input
+            id="answer"
+            type="text"
+            lang="en"
+            aria-label="Englisch"
+            autocomplete="off"
+            autocorrect="off"
+            autocapitalize="off"
+            spellcheck="false"
+            enterkeyhint="go"
+          >
+          <button id="submit" type="submit">Prüfen</button>
+        </form>
+        <div id="feedback" hidden></div>
+      </section>
+
+      <section id="done" hidden>
+        <p class="celebrate">🎉</p>
+        <h1>Liste geschafft!</h1>
+        <p id="done-text"></p>
+        <button id="done-back" type="button">Zur Übersicht</button>
+      </section>
+    </main>
+    <pre id="error-overlay" hidden></pre>
   </body>
 </html>
