@@ -90,6 +90,24 @@ button {
   color: var(--good);
 }
 
+.list-levels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 16px;
+  margin-top: 6px;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.level {
+  white-space: nowrap;
+}
+
+.level-dots {
+  color: var(--good);
+  letter-spacing: 0.1em;
+}
+
 .error {
   color: var(--bad);
 }

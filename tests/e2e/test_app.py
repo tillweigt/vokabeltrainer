@@ -63,7 +63,17 @@ def test_startseite_zeigt_echte_liste(page: Page):
     expect(page.locator("h2")).to_have_text("Englisch")
     button = page.locator(".list-button", has_text="Pick-up A")
     expect(button).to_contain_text("0 von 24 geschafft")
+    expect(button.locator(".level")).to_have_text(["○○○ 24", "●○○ 0", "●●○ 0", "●●● 0"])
     expect(page.locator("#error-overlay")).to_be_hidden()
+
+
+def test_startseite_zeigt_stufen(page: Page, mini_list):
+    open_list(page, "Testliste")
+    for _ in range(len(mini_list["items"]) + 1):  # ein Durchgang (alle 1×) plus eine Karte (2×)
+        answer_correctly_and_continue(page, mini_list)
+    page.click("#back")
+    levels = page.locator(".list-button", has_text="Testliste").locator(".level")
+    expect(levels).to_have_text(["○○○ 0", "●○○ 3", "●●○ 1", "●●● 0"])
 
 
 def test_echte_liste_laesst_sich_spielen(page: Page):

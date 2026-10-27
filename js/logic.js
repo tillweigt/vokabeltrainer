@@ -69,6 +69,18 @@ export function countMastered(cards, progress) {
 }
 
 /**
+ * Wie viele Karten haben 0, 1, 2, … MASTERY_TARGET Treffer?
+ * Der Index im Ergebnis ist die Anzahl der Treffer.
+ */
+export function countByHits(cards, progress) {
+  const counts = new Array(MASTERY_TARGET + 1).fill(0);
+  for (const card of cards) {
+    counts[Math.min(progress[card.key] ?? 0, MASTERY_TARGET)]++;
+  }
+  return counts;
+}
+
+/**
  * Ein Durchgang: alle noch nicht geschafften Karten, gemischt.
  * Jeder Eintrag merkt sich, ob es noch der erste Versuch ist.
  */

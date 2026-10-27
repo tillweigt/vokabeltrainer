@@ -3,6 +3,7 @@ import {
   MASTERY_TARGET,
   advanceQueue,
   buildCards,
+  countByHits,
   countMastered,
   isCorrect,
   recordAnswer,
@@ -36,6 +37,11 @@ function element(tag, className, text) {
   return el;
 }
 
+/** z. B. 2 Treffer → "●●○" */
+function dotsFor(hits) {
+  return "●".repeat(hits) + "○".repeat(MASTERY_TARGET - hits);
+}
+
 async function loadJson(path) {
   // no-cache: nach einem Update sofort die neuen Listen holen
   const response = await fetch(path, { cache: "no-cache" });
@@ -53,18 +59,31 @@ function renderStart() {
     container.append(element("h2", "", subject));
     for (const list of lists.filter((l) => l.fach === subject)) {
       const cards = buildCards(list);
-      const mastered = countMastered(cards, loadProgress(list));
+      const progress = loadProgress(list);
+      const mastered = countMastered(cards, progress);
       const button = element("button", "list-button");
       button.type = "button";
       button.append(
         element("span", "list-title", list.titel),
         element("span", "list-progress", `${mastered} von ${cards.length} geschafft`),
+        renderLevels(cards, progress),
       );
       if (mastered === cards.length) button.classList.add("complete");
       button.addEventListener("click", () => startList(list));
       container.append(button);
     }
   }
+}
+
+/** Zeile „○○○ 9   ●○○ 8   ●●○ 5   ●●● 2“: wie viele Karten auf welchem Stand sind */
+function renderLevels(cards, progress) {
+  const levels = element("span", "list-levels");
+  countByHits(cards, progress).forEach((count, hits) => {
+    const level = element("span", "level");
+    level.append(element("span", "level-dots", dotsFor(hits)), ` ${count}`);
+    levels.append(level);
+  });
+  return levels;
 }
 
 // ---------- Abfrage ----------
@@ -99,7 +118,7 @@ function updateStatus(card) {
   $("#mastered-count").textContent = `${mastered} von ${session.cards.length} geschafft`;
   const hits = Math.min(session.progress[card.key] ?? 0, MASTERY_TARGET);
   const dots = $("#dots");
-  dots.textContent = "●".repeat(hits) + "○".repeat(MASTERY_TARGET - hits);
+  dots.textContent = dotsFor(hits);
   dots.setAttribute("aria-label", `${hits} von ${MASTERY_TARGET} Mal richtig`);
 }
 
