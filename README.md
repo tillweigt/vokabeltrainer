@@ -18,7 +18,7 @@ Es gibt kein Framework, keinen Build-Schritt und keinen Server-Code: nur HTML, C
 make serve
 ```
 
-(Dahinter steckt `python3 -m http.server 8000`.) Dann im Browser <http://localhost:8000> öffnen. Mit F12 öffnen sich die Entwicklerwerkzeuge, darin lässt sich mit dem Handy-Symbol die iPhone-Ansicht einschalten.
+Dahinter steckt [tools/serve.py](tools/serve.py): ein kleiner Webserver auf Basis von Pythons `http.server`, der dem Browser das Zwischenspeichern verbietet. So ist nach jeder Änderung ein normales Neuladen genug. Dann im Browser <http://localhost:8000> öffnen. Mit F12 öffnen sich die Entwicklerwerkzeuge, darin lässt sich mit dem Handy-Symbol die iPhone-Ansicht einschalten.
 
 Ein Doppelklick auf `index.html` funktioniert nicht, weil der Browser JavaScript-Module nur über einen Server lädt.
 
