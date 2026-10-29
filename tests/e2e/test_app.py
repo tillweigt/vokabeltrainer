@@ -34,14 +34,38 @@ def answer_correctly_and_continue(page: Page, data: dict) -> None:
     answer(page, solution_for(page, data))
     expect(page.locator("#feedback")).to_contain_text("Richtig")
     page.press("#answer", "Enter")
-    # Weiter hat geklappt: entweder neue Karte zur Eingabe oder „Liste geschafft“
-    expect(page.locator("#submit:text('Prüfen'), #done:visible")).to_have_count(1)
+    # Weiter hat geklappt: neue Karte zur Eingabe, „Liste geschafft“ oder Ergebnis der Portion
+    expect(page.locator("#submit:text('Prüfen'), #done:visible, #mix-done:visible")).to_have_count(1)
 
 
 def open_list(page: Page, title: str) -> None:
     page.goto("/")
     page.locator(".list-button", has_text=title).click()
     expect(page.locator("#quiz")).to_be_visible()
+
+
+def open_mix(page: Page) -> None:
+    page.goto("/")
+    page.locator(".mix-button").click()
+    expect(page.locator("#quiz")).to_be_visible()
+
+
+def history(page: Page, list_id: str) -> dict:
+    return page.evaluate(
+        "(id) => JSON.parse(localStorage.getItem(`vokabeltrainer:v1:${id}:verlauf`) || '{}')",
+        list_id,
+    )
+
+
+def real_lists() -> dict:
+    """Alle echten Englisch-Listen zusammen, für solution_for in der Super-Liste."""
+    ids = json.loads((ROOT / "lists" / "index.json").read_text(encoding="utf-8"))
+    items = []
+    for list_id in ids:
+        data = json.loads((ROOT / "lists" / f"{list_id}.json").read_text(encoding="utf-8"))
+        if data["fach"] == "Englisch":
+            items += data["items"]
+    return {"items": items}
 
 
 def advance_to(page: Page, data: dict, en: str) -> None:
@@ -89,7 +113,7 @@ def test_echte_liste_laesst_sich_spielen(page: Page):
 def test_richtige_antwort(page: Page, mini_list):
     open_list(page, "Testliste")
     expect(page.locator("#dots")).to_have_text("○○○")
-    expect(page.locator("#mastered-count")).to_have_text("0 von 4 geschafft")
+    expect(page.locator("#quiz-status")).to_have_text("0 von 4 geschafft")
     answer(page, solution_for(page, mini_list))
     expect(page.locator("#feedback")).to_have_text("Richtig!")
     expect(page.locator("#dots")).to_have_text("●○○")
@@ -169,24 +193,27 @@ def test_mehrdeutigkeit_zeigt_alternativen(page: Page, mini_list):
     expect(page.locator("#feedback .also")).to_have_text("Auch richtig: My name is …")
 
 
-def test_falsche_karte_kommt_wieder_und_zaehlt_nicht(page: Page, mini_list):
+def test_falsche_karte_kommt_erst_im_naechsten_durchgang(page: Page, mini_list):
     open_list(page, "Testliste")
     first = question(page)
     answer(page, "falsch")
     page.press("#answer", "Enter")
 
-    # Die drei anderen Karten kommen dazwischen …
-    between = []
+    # Rest des Durchgangs: die drei anderen Karten, jede genau einmal
+    rest = []
     for _ in range(3):
-        between.append(question(page))
+        rest.append(question(page))
         answer_correctly_and_continue(page, mini_list)
-    assert first not in between
+    assert first not in rest
+    assert len(set(rest)) == 3
 
-    # … dann die falsche Karte wieder. Richtig, aber ohne Punkt, weil es kein erster Versuch war.
-    expect(page.locator("#question")).to_have_text(first)
-    answer(page, solution_for(page, mini_list))
-    expect(page.locator("#feedback")).to_contain_text("Richtig")
-    expect(page.locator("#dots")).to_have_text("○○○")
+    # Nächster Durchgang: wieder alle vier, die falsche noch ohne Punkt
+    second_round = {}
+    for _ in range(4):
+        second_round[question(page)] = page.locator("#dots").inner_text()
+        answer_correctly_and_continue(page, mini_list)
+    assert len(second_round) == 4
+    assert second_round[first] == "○○○"
 
 
 def test_fehler_setzt_nicht_zurueck(page: Page, mini_list):
@@ -262,6 +289,97 @@ def test_frueher_komplett_geschaffte_liste_zaehlt_als_runde(page: Page, mini_lis
     expect(page.locator("#done-rounds")).to_have_text("🏆 1× komplett geschafft")
     page.click("#done-back")
     expect(button.locator(".list-progress")).to_have_text("0 von 4 geschafft")
+
+
+# ---------- Super-Liste ----------
+
+
+def test_super_liste_ganz_oben(page: Page):
+    page.goto("/")
+    first = page.locator("#lists > :first-child")
+    expect(first).to_have_class("list-button mix-button")
+    expect(first.locator(".list-title")).to_have_text("🔀 Alle Englisch-Vokabeln")
+    expect(first.locator(".list-progress")).to_have_text(
+        "53 Vokabeln aus 2 Listen · immer 10 Karten"
+    )
+
+
+def test_super_liste_mit_echten_listen(page: Page):
+    data = real_lists()
+    open_mix(page)
+    expect(page.locator("#quiz-status")).to_have_text("Karte 1 von 10")
+    expect(page.locator("#dots")).to_be_hidden()
+    expect(page.locator("#answer")).to_be_focused()
+
+    asked = []
+    for _ in range(10):
+        asked.append(question(page))
+        answer_correctly_and_continue(page, data)
+    assert len(set(asked)) == 10  # keine Vokabel doppelt
+    expect(page.locator("#mix-result")).to_have_text("10 von 10 richtig")
+    expect(page.locator("#error-overlay")).to_be_hidden()
+
+    # „Weiter üben“: nächste Portion, Tastatur bleibt offen
+    page.click("#mix-again")
+    expect(page.locator("#quiz-status")).to_have_text("Karte 1 von 10")
+    expect(page.locator("#answer")).to_be_focused()
+
+
+def test_super_liste_zaehlt_karten(page: Page, mini_list):
+    open_mix(page)  # nur 4 Vokabeln → Portion mit allen 4
+    status = page.locator("#quiz-status")
+    expect(status).to_have_text("Karte 1 von 4")
+    answer(page, solution_for(page, mini_list))
+    expect(status).to_have_text("Karte 1 von 4")  # während der Rückmeldung unverändert
+    page.press("#answer", "Enter")
+    expect(status).to_have_text("Karte 2 von 4")
+
+    page.click("#back")
+    expect(page.locator("#start")).to_be_visible()
+
+
+def test_super_liste_nur_im_verlauf(page: Page, mini_list):
+    button = page.locator(".list-button", has_text="Testliste")
+
+    # In der Liste: erste Karte falsch
+    open_list(page, "Testliste")
+    first_en = solution_for(page, mini_list)
+    answer(page, "falsch")
+    page.click("#back")
+
+    # In der Super-Liste: erste Karte falsch, die anderen drei richtig
+    open_mix(page)
+    answer(page, "falsch")
+    page.press("#answer", "Enter")
+    for _ in range(3):
+        answer_correctly_and_continue(page, mini_list)
+    expect(page.locator("#mix-result")).to_have_text("3 von 4 richtig")
+
+    # Verlauf: 1 Antwort aus der Liste + 4 aus der Super-Liste
+    log = history(page, "test-mini")
+    assert sum(len(entries) for entries in log.values()) == 5
+    assert log[first_en].startswith("F")
+
+    # Die Zähler der Liste bleiben unberührt
+    page.click("#mix-back")
+    expect(button.locator(".list-progress")).to_have_text("0 von 4 geschafft")
+    expect(button.locator(".level")).to_have_text(["○○○ 4", "●○○ 0", "●●○ 0", "●●● 0"])
+
+
+def test_verlauf_bleibt_bei_durchlauf(page: Page, mini_list):
+    open_list(page, "Testliste")
+    first_en = solution_for(page, mini_list)
+    answer_correctly_and_continue(page, mini_list)
+    assert history(page, "test-mini") == {first_en: "R"}
+
+    mini_list["durchlauf"] = 2
+    page.goto("/")
+    button = page.locator(".list-button", has_text="Testliste")
+    expect(button.locator(".level")).to_have_text(["○○○ 4", "●○○ 0", "●●○ 0", "●●● 0"])
+    assert history(page, "test-mini") == {first_en: "R"}
+
+
+# ---------- Sonstiges ----------
 
 
 def test_zurueck_zur_uebersicht(page: Page, mini_list):

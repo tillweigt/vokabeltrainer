@@ -4,43 +4,57 @@
 
 const PREFIX = "vokabeltrainer:v1";
 
-// Wird „durchlauf“ in der Listendatei erhöht, entsteht ein neuer Schlüssel
-// und der Fortschritt dieser Liste beginnt wieder bei null.
-function storageKey(list) {
+function read(key, fallback) {
+  try {
+    return JSON.parse(localStorage.getItem(key)) ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function write(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (error) {
+    console.warn(`${key} konnte nicht gespeichert werden:`, error);
+  }
+}
+
+// Wird „durchlauf“ in der Listendatei erhöht, entsteht ein neuer Schlüssel:
+// Punkte und Runden dieser Liste beginnen wieder bei null.
+function roundKey(list) {
   return `${PREFIX}:${list.id}:${list.durchlauf ?? 1}`;
 }
 
-/** Fortschritt einer Liste: { "<englisch>": anzahlRichtig, ... } */
+// Der Verlauf hängt bewusst nicht an „durchlauf“ und bleibt beim Zurücksetzen erhalten.
+function historyKey(listId) {
+  return `${PREFIX}:${listId}:verlauf`;
+}
+
+/** Punkte einer Liste: { "<englisch>": anzahlRichtig, ... } */
 export function loadProgress(list) {
-  try {
-    return JSON.parse(localStorage.getItem(storageKey(list))) ?? {};
-  } catch {
-    return {};
-  }
+  return read(roundKey(list), {});
 }
 
 export function saveProgress(list, progress) {
-  try {
-    localStorage.setItem(storageKey(list), JSON.stringify(progress));
-  } catch (error) {
-    console.warn("Fortschritt konnte nicht gespeichert werden:", error);
-  }
+  write(roundKey(list), progress);
 }
 
 /** Wie oft die Liste schon komplett geschafft wurde (alle Vokabeln 3×). */
 export function loadRounds(list) {
-  try {
-    const rounds = Number(localStorage.getItem(`${storageKey(list)}:runden`));
-    return Number.isInteger(rounds) && rounds > 0 ? rounds : 0;
-  } catch {
-    return 0;
-  }
+  const rounds = read(`${roundKey(list)}:runden`, 0);
+  return Number.isInteger(rounds) && rounds > 0 ? rounds : 0;
 }
 
 export function saveRounds(list, rounds) {
-  try {
-    localStorage.setItem(`${storageKey(list)}:runden`, String(rounds));
-  } catch (error) {
-    console.warn("Runden konnten nicht gespeichert werden:", error);
-  }
+  write(`${roundKey(list)}:runden`, rounds);
+}
+
+/** Verlauf aller Vokabeln einer Liste: { "<englisch>": "RRFR", ... } */
+export function loadHistory(listId) {
+  return read(historyKey(listId), {});
+}
+
+export function saveHistory(listId, history) {
+  write(historyKey(listId), history);
 }

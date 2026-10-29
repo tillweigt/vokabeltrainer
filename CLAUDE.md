@@ -1,6 +1,6 @@
 # Vokabeltrainer – Arbeitsregeln für Claude Code
 
-Statische Lern-Website (HTML, CSS, Vanilla-JavaScript als ES-Module) für das iPhone. Fachliche Spezifikation: [PLAN.md](PLAN.md). Der Abschnitt „Stand: MVP“ dort hat Vorrang vor dem Rest.
+Statische Lern-Website (HTML, CSS, Vanilla-JavaScript als ES-Module) für das iPhone. Fachliche Spezifikation: [PLAN.md](PLAN.md). Die Abschnitte „Stand: …“ oben haben Vorrang vor dem Rest, der neueste zuerst.
 
 ## Zusammenarbeit
 
@@ -23,7 +23,8 @@ Statische Lern-Website (HTML, CSS, Vanilla-JavaScript als ES-Module) für das iP
 
 - WSL2 im NAT-Modus: `localhost` funktioniert im Windows-Browser, das iPhone erreicht WSL aber nicht. Getestet wird am iPhone über GitHub Pages.
 - Lokal starten: `make serve` (`python3 tools/serve.py`, ohne Browser-Cache), dann <http://localhost:8000>
-- E2E-Tests: `make test` (`uv run --with pytest-playwright pytest tests/e2e`), pytest-Optionen über `ARGS="..."`
+- Tests: `make test` = `make unit` (`node --test`, für `js/logic.js`) + `make e2e` (`uv run --with pytest-playwright pytest tests/e2e`, pytest-Optionen über `ARGS="..."`)
+- Neue Logik in `js/logic.js` bekommt Unit-Tests in `tests/logic.test.js`.
 
 ## Inhalte
 

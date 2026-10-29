@@ -1,11 +1,14 @@
 // Reine Logik ohne Zugriff auf die Seite (DOM).
-// Alles hier lässt sich später direkt mit Unit-Tests prüfen.
+// Alles hier wird in tests/logic.test.js direkt mit Unit-Tests geprüft.
 
-/** So oft muss eine Karte beim ersten Versuch richtig sein, dann gilt sie als geschafft. */
+/** So oft muss eine Karte richtig sein, dann gilt sie in ihrer Liste als geschafft. */
 export const MASTERY_TARGET = 3;
 
-/** Eine falsch beantwortete Karte kommt nach so vielen anderen Karten wieder. */
-export const REPEAT_GAP = 3;
+/** So viele Karten hat eine Portion der Super-Liste. */
+export const PORTION_SIZE = 10;
+
+/** So viele der letzten Antworten zählen für das Gewicht in der Super-Liste. */
+export const RECENT_ANSWERS = 5;
 
 /**
  * Macht eine Antwort vergleichbar. Bewusst streng: Groß-/Kleinschreibung und
@@ -33,8 +36,8 @@ export function isCorrect(input, answers) {
  * Macht aus einer Vokabelliste Karten für die Richtung Deutsch → Englisch.
  *
  * Mehrere englische Einträge können dieselbe deutsche Bedeutung haben
- * („I'm …“ und „My name is …“ → „Ich heiße …“). Deshalb zählt jedes Englisch,
- * dessen deutsche Varianten sich mit denen der Frage überschneiden.
+ * („I'm …“ und „My name is …“ → „Ich heiße …“). Deshalb zählt jedes Englisch
+ * derselben Liste, dessen deutsche Varianten sich mit denen der Frage überschneiden.
  * Die eigene Lösung steht immer an erster Stelle.
  */
 export function buildCards(list) {
@@ -43,6 +46,7 @@ export function buildCards(list) {
       .filter((other) => other !== item && other.de.some((de) => item.de.includes(de)))
       .map((other) => other.en);
     return {
+      listId: list.id,
       key: item.en,
       frage: item.de.join(" / "),
       antworten: [item.en, ...alternatives],
@@ -59,6 +63,8 @@ export function shuffle(array, random = Math.random) {
   }
   return copy;
 }
+
+// ---------- Einzelne Liste: 3× richtig ----------
 
 export function isMastered(progress, key) {
   return (progress[key] ?? 0) >= MASTERY_TARGET;
@@ -82,30 +88,52 @@ export function countByHits(cards, progress) {
 
 /**
  * Ein Durchgang: alle noch nicht geschafften Karten, gemischt.
- * Jeder Eintrag merkt sich, ob es noch der erste Versuch ist.
+ * Jede Karte kommt genau einmal, egal ob sie richtig oder falsch beantwortet wird.
  */
 export function startRound(cards, progress, random = Math.random) {
-  const open = cards.filter((card) => !isMastered(progress, card.key));
-  return shuffle(open, random).map((card) => ({ card, firstTry: true }));
+  return shuffle(
+    cards.filter((card) => !isMastered(progress, card.key)),
+    random,
+  );
+}
+
+/** Zählt eine richtige Antwort im Fortschritt der Liste. Ein Fehler setzt nichts zurück. */
+export function recordAnswer(progress, card, correct) {
+  if (!correct) return progress;
+  return { ...progress, [card.key]: (progress[card.key] ?? 0) + 1 };
+}
+
+// ---------- Verlauf und Super-Liste ----------
+
+/** Hängt eine Antwort an den Verlauf an: "R" für richtig, "F" für falsch. */
+export function appendHistory(history, key, correct) {
+  return { ...history, [key]: (history[key] ?? "") + (correct ? "R" : "F") };
 }
 
 /**
- * Nimmt die vorderste Karte aus der Warteschlange. Bei einer falschen Antwort
- * kommt sie REPEAT_GAP Karten später wieder (oder ans Ende, wenn weniger übrig sind).
+ * Gewicht einer Vokabel für die Super-Liste: geglättete Fehlerquote der
+ * letzten RECENT_ANSWERS Antworten, (Fehler + 1) / (Antworten + 2).
+ * Nie gefragt → 1/2, nur richtig → klein, aber nie 0.
  */
-export function advanceQueue(queue, correct) {
-  const [current, ...rest] = queue;
-  if (correct) return rest;
-  const position = Math.min(REPEAT_GAP, rest.length);
-  return [...rest.slice(0, position), { ...current, firstTry: false }, ...rest.slice(position)];
+export function weight(history = "") {
+  const recent = history.slice(-RECENT_ANSWERS);
+  const errors = [...recent].filter((answer) => answer === "F").length;
+  return (errors + 1) / (recent.length + 2);
 }
 
 /**
- * Zählt eine Antwort im Fortschritt. Nur ein richtiger erster Versuch zählt;
- * ein Fehler setzt nichts zurück.
+ * Zieht bis zu `size` verschiedene Karten. Jede Karte wird mit einer
+ * Wahrscheinlichkeit proportional zu ihrem Gewicht gezogen (ohne Zurücklegen).
  */
-export function recordAnswer(progress, entry, correct) {
-  if (!correct || !entry.firstTry) return progress;
-  const key = entry.card.key;
-  return { ...progress, [key]: (progress[key] ?? 0) + 1 };
+export function drawPortion(cards, weightOf, size = PORTION_SIZE, random = Math.random) {
+  const pool = cards.map((card) => ({ card, weight: weightOf(card) }));
+  const portion = [];
+  while (portion.length < size && pool.length > 0) {
+    const total = pool.reduce((sum, entry) => sum + entry.weight, 0);
+    let target = random() * total;
+    let index = pool.findIndex((entry) => (target -= entry.weight) < 0);
+    if (index === -1) index = pool.length - 1; // nur bei Rundungsfehlern
+    portion.push(pool.splice(index, 1)[0].card);
+  }
+  return portion;
 }

@@ -30,7 +30,7 @@
       <section id="quiz" hidden>
         <div class="quiz-header">
           <button id="back" type="button">‹ Listen</button>
-          <span id="mastered-count"></span>
+          <span id="quiz-status"></span>
         </div>
         <p id="question" class="question"></p>
         <p id="dots" class="dots"></p>
@@ -57,6 +57,15 @@
         <p id="done-text"></p>
         <p id="done-rounds" class="done-rounds"></p>
         <button id="done-back" type="button">Zur Übersicht</button>
+      </section>
+
+      <section id="mix-done" hidden>
+        <p class="celebrate">🎯</p>
+        <h1 id="mix-result"></h1>
+        <div class="done-buttons">
+          <button id="mix-again" type="button">Weiter üben</button>
+          <button id="mix-back" type="button" class="secondary">Zur Übersicht</button>
+        </div>
       </section>
     </main>
     <pre id="error-overlay" hidden></pre>

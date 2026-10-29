@@ -4,6 +4,34 @@ Dieses Dokument fasst ein Vorgespräch zusammen. Es dient als Grundlage, um die 
 
 ---
 
+## Stand: Verlauf und Super-Liste (festgelegt am 29.10.2026)
+
+Ergänzt und ändert den Abschnitt „Stand: MVP“ darunter. Bei Widersprüchen gilt dieser Abschnitt.
+
+**Einzelne Listen (Änderung)**
+- Jede offene Vokabel kommt pro Durchgang **genau einmal**, egal ob richtig oder falsch. Danach wird neu gemischt (einfach zufällig). Die Wiederholung „falsche Karte 3 Karten später“ entfällt.
+- Unverändert: 3× richtig = geschafft, Fehler setzen nichts zurück, nach allen ●●● 🏆 +1 und neue Runde, Stufen-Anzeige.
+
+**Verlauf pro Vokabel (neu)**
+- Jede Antwort wird als `R` oder `F` angehängt, aus einzelnen Listen **und** der Super-Liste.
+- Dauerhaft: bleibt nach „Liste geschafft!“ und beim Erhöhen von `durchlauf` erhalten. Nur intern, keine Anzeige.
+- Beginnt mit dem Update leer. Neues `en` → neuer Verlauf.
+
+**Super-Liste „Alle Englisch-Vokabeln“ (neu)**
+- Ganz oben auf der Startseite: „🔀 Alle Englisch-Vokabeln · N Vokabeln aus M Listen · immer 10 Karten“.
+- Enthält alle Vokabeln aller Englisch-Listen, auch geschaffte und nie geübte.
+- Portion mit **10 verschiedenen** Vokabeln (bei weniger Vokabeln: alle).
+- **Gewicht** = `(F + 1) / (n + 2)` über die **letzten 5** Antworten des Verlaufs (nie gefragt → 1/2). Gezogen wird zufällig proportional zum Gewicht, neu bei jeder Portion.
+- Mehrdeutigkeit nur **innerhalb der eigenen Liste** (wie bisher).
+- Oben „Karte 3 von 10“, keine Punkte. Ende: „7 von 10 richtig“ mit „Weiter üben“ und „Zur Übersicht“.
+- Antworten gehen **nur in den Verlauf**, nicht in Punkte oder Runden der Listen.
+
+**Tests:** Unit-Tests für `js/logic.js` mit `node --test` (`make unit`), E2E wie bisher (`make e2e`), beides mit `make test`.
+
+**Geparkt:** Mehrdeutigkeit über Listen hinweg, Test-Modus mit mehreren ausgewählten Listen, Anzeige des Verlaufs.
+
+---
+
 ## Stand: MVP (festgelegt am 27.10.2026)
 
 Für die erste Live-Version gilt Folgendes. Wo es dem Rest des Dokuments widerspricht, hat dieser Abschnitt Vorrang.

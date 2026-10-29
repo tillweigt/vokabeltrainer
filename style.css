@@ -7,6 +7,7 @@
   --surface: #ffffff;
   --border: #d2d2d7;
   --accent: #0a66c2;
+  --accent-background: #eaf2fb;
   --good: #1a7f37;
   --good-background: #e6f4ea;
   --bad: #c62828;
@@ -96,6 +97,13 @@ button {
   color: var(--good);
 }
 
+/* Super-Liste: ganz oben, etwas abgesetzt */
+.mix-button {
+  margin-top: 4px;
+  border: 2px solid var(--accent);
+  background: var(--accent-background);
+}
+
 .list-levels {
   display: flex;
   flex-wrap: wrap;
@@ -135,7 +143,7 @@ button {
   color: var(--accent);
 }
 
-#mastered-count {
+#quiz-status {
   font-size: 0.9rem;
   color: var(--muted);
 }
@@ -184,14 +192,21 @@ button {
 }
 
 #submit,
-#done-back {
+#done-back,
+#mix-again,
+#mix-back {
   min-height: 52px;
   padding: 0 18px;
-  border: none;
+  border: 2px solid var(--accent);
   border-radius: 12px;
   background: var(--accent);
   color: #ffffff;
   font-weight: 600;
+}
+
+#mix-back {
+  background: var(--surface);
+  color: var(--accent);
 }
 
 #feedback {
@@ -225,11 +240,23 @@ button {
   font-size: 0.95rem;
 }
 
-/* ---------- Liste geschafft ---------- */
+/* ---------- Liste geschafft / Portion fertig ---------- */
 
-#done {
+#done,
+#mix-done {
   padding-top: 40px;
   text-align: center;
+}
+
+.done-buttons {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.done-buttons button {
+  min-width: 14rem;
 }
 
 .done-rounds {
