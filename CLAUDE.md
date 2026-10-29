@@ -22,8 +22,8 @@ Statische Lern-Website (HTML, CSS, Vanilla-JavaScript als ES-Module) für das iP
 ## Umgebung und Befehle
 
 - WSL2 im NAT-Modus: `localhost` funktioniert im Windows-Browser, das iPhone erreicht WSL aber nicht. Getestet wird am iPhone über GitHub Pages.
-- Lokal starten: `python3 -m http.server 8000`, dann <http://localhost:8000>
-- E2E-Tests: `uv run --with pytest-playwright pytest tests/e2e`
+- Lokal starten: `make serve` (`python3 -m http.server 8000`), dann <http://localhost:8000>
+- E2E-Tests: `make test` (`uv run --with pytest-playwright pytest tests/e2e`), pytest-Optionen über `ARGS="..."`
 
 ## Inhalte
 
