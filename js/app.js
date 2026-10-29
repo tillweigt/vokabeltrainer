@@ -9,7 +9,7 @@ import {
   recordAnswer,
   startRound,
 } from "./logic.js";
-import { loadProgress, saveProgress } from "./storage.js";
+import { loadProgress, loadRounds, saveProgress, saveRounds } from "./storage.js";
 
 const $ = (selector) => document.querySelector(selector);
 
@@ -42,6 +42,10 @@ function dotsFor(hits) {
   return "●".repeat(hits) + "○".repeat(MASTERY_TARGET - hits);
 }
 
+function roundsText(rounds) {
+  return `🏆 ${rounds}× komplett geschafft`;
+}
+
 async function loadJson(path) {
   // no-cache: nach einem Update sofort die neuen Listen holen
   const response = await fetch(path, { cache: "no-cache" });
@@ -65,6 +69,7 @@ function renderStart() {
       button.type = "button";
       button.append(
         element("span", "list-title", list.titel),
+        element("span", "list-rounds", roundsText(loadRounds(list))),
         element("span", "list-progress", `${mastered} von ${cards.length} geschafft`),
         renderLevels(cards, progress),
       );
@@ -93,6 +98,8 @@ function startList(list) {
   const progress = loadProgress(list);
   session = { list, cards, progress, queue: startRound(cards, progress), showingFeedback: false };
   if (session.queue.length === 0) {
+    // Nur möglich, wenn die Liste noch aus der Zeit vor dem Runden-Zähler komplett geschafft ist
+    finishRound();
     showDone();
     return;
   }
@@ -162,6 +169,7 @@ function nextCard() {
     // Durchgang zu Ende: neuer Durchgang mit allen noch offenen Karten
     session.queue = startRound(session.cards, session.progress);
     if (session.queue.length === 0) {
+      finishRound();
       showDone();
       return;
     }
@@ -170,10 +178,19 @@ function nextCard() {
   input.focus();
 }
 
+/** Alle Vokabeln geschafft: Runde zählen und den Fortschritt für die nächste Runde leeren. */
+function finishRound() {
+  session.rounds = loadRounds(session.list) + 1;
+  saveRounds(session.list, session.rounds);
+  session.progress = {};
+  saveProgress(session.list, session.progress);
+}
+
 function showDone() {
   input.blur();
   $("#done-text").textContent =
     `Alle ${session.cards.length} Vokabeln ${MASTERY_TARGET}× richtig. Super!`;
+  $("#done-rounds").textContent = roundsText(session.rounds);
   showScreen("done");
 }
 

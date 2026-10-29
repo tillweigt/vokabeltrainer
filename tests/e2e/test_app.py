@@ -62,7 +62,8 @@ def test_startseite_zeigt_echte_liste(page: Page):
     page.goto("/")
     expect(page.locator("h2")).to_have_text("Englisch")
     button = page.locator(".list-button", has_text="Pick-up A")
-    expect(button).to_contain_text("0 von 24 geschafft")
+    expect(button.locator(".list-rounds")).to_have_text("🏆 0× komplett geschafft")
+    expect(button.locator(".list-progress")).to_have_text("0 von 24 geschafft")
     expect(button.locator(".level")).to_have_text(["○○○ 24", "●○○ 0", "●●○ 0", "●●● 0"])
     expect(page.locator("#error-overlay")).to_be_hidden()
 
@@ -208,24 +209,59 @@ def test_fortschritt_bleibt_nach_neuladen(page: Page, mini_list):
     expect(page.locator("#dots")).to_have_text("●○○")
 
 
-def test_liste_schaffen_und_durchlauf_zuruecksetzen(page: Page, mini_list):
+def play_full_round(page: Page, data: dict) -> None:
+    for _ in range(MASTERY_TARGET * len(data["items"])):
+        answer_correctly_and_continue(page, data)
+    expect(page.locator("#done")).to_be_visible()
+
+
+def test_runden_zaehlen_und_neu_starten(page: Page, mini_list):
+    button = page.locator(".list-button", has_text="Testliste")
     open_list(page, "Testliste")
-    for _ in range(MASTERY_TARGET * len(mini_list["items"])):
-        answer_correctly_and_continue(page, mini_list)
-    expect(page.locator("#done")).to_be_visible()
+    play_full_round(page, mini_list)
     expect(page.locator("#done-text")).to_have_text("Alle 4 Vokabeln 3× richtig. Super!")
+    expect(page.locator("#done-rounds")).to_have_text("🏆 1× komplett geschafft")
 
+    # Zurück: Runde gezählt, Fortschritt für die nächste Runde geleert
     page.click("#done-back")
-    expect(page.locator(".list-button", has_text="Testliste")).to_contain_text("4 von 4 geschafft")
+    expect(button.locator(".list-rounds")).to_have_text("🏆 1× komplett geschafft")
+    expect(button.locator(".list-progress")).to_have_text("0 von 4 geschafft")
 
-    # Liste wieder öffnen: direkt „geschafft“
-    page.locator(".list-button", has_text="Testliste").click()
-    expect(page.locator("#done")).to_be_visible()
+    # Nächstes Antippen startet die nächste Runde
+    button.click()
+    expect(page.locator("#quiz")).to_be_visible()
+    expect(page.locator("#dots")).to_have_text("○○○")
+    play_full_round(page, mini_list)
+    expect(page.locator("#done-rounds")).to_have_text("🏆 2× komplett geschafft")
 
-    # „durchlauf“ erhöhen → Fortschritt beginnt neu
+    # Der Zähler bleibt nach dem Neuladen
+    page.goto("/")
+    expect(button.locator(".list-rounds")).to_have_text("🏆 2× komplett geschafft")
+
+    # „durchlauf“ erhöhen → Fortschritt und Runden beginnen neu
     mini_list["durchlauf"] = 2
     page.goto("/")
-    expect(page.locator(".list-button", has_text="Testliste")).to_contain_text("0 von 4 geschafft")
+    expect(button.locator(".list-rounds")).to_have_text("🏆 0× komplett geschafft")
+    expect(button.locator(".list-progress")).to_have_text("0 von 4 geschafft")
+
+
+def test_frueher_komplett_geschaffte_liste_zaehlt_als_runde(page: Page, mini_list):
+    """Stand aus der Zeit vor dem Runden-Zähler: alle Vokabeln ●●●, aber 0 Runden."""
+    page.goto("/")
+    page.evaluate(
+        """(items) => localStorage.setItem("vokabeltrainer:v1:test-mini:1",
+            JSON.stringify(Object.fromEntries(items.map((item) => [item.en, 3]))))""",
+        mini_list["items"],
+    )
+    page.reload()
+    button = page.locator(".list-button", has_text="Testliste")
+    expect(button.locator(".list-progress")).to_have_text("4 von 4 geschafft")
+    expect(button.locator(".list-rounds")).to_have_text("🏆 0× komplett geschafft")
+
+    button.click()
+    expect(page.locator("#done-rounds")).to_have_text("🏆 1× komplett geschafft")
+    page.click("#done-back")
+    expect(button.locator(".list-progress")).to_have_text("0 von 4 geschafft")
 
 
 def test_zurueck_zur_uebersicht(page: Page, mini_list):

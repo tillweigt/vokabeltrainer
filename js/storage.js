@@ -26,3 +26,21 @@ export function saveProgress(list, progress) {
     console.warn("Fortschritt konnte nicht gespeichert werden:", error);
   }
 }
+
+/** Wie oft die Liste schon komplett geschafft wurde (alle Vokabeln 3×). */
+export function loadRounds(list) {
+  try {
+    const rounds = Number(localStorage.getItem(`${storageKey(list)}:runden`));
+    return Number.isInteger(rounds) && rounds > 0 ? rounds : 0;
+  } catch {
+    return 0;
+  }
+}
+
+export function saveRounds(list, rounds) {
+  try {
+    localStorage.setItem(`${storageKey(list)}:runden`, String(rounds));
+  } catch (error) {
+    console.warn("Runden konnten nicht gespeichert werden:", error);
+  }
+}

@@ -18,8 +18,10 @@ Für die erste Live-Version gilt Folgendes. Wo es dem Rest des Dokuments widersp
 - **Feedback:** richtig → grün; falsch → rot mit richtiger Lösung (und Alternativen). Weiter **immer per Return oder Knopf**, nie automatisch. Die Tastatur bleibt offen.
 - **Endlose Runde in Durchgängen:** Ein Durchgang enthält alle noch nicht geschafften Karten, gemischt. Eine falsche Karte kommt im selben Durchgang 3 Karten später wieder, bis sie richtig getippt ist.
 - **Geschafft:** 3× richtig beim ersten Versuch im Durchgang. Ein Fehler setzt nichts zurück. Richtig nach einem Fehler im selben Durchgang zählt nicht. Geschaffte Karten kommen nicht mehr. Sind alle geschafft: „Liste geschafft!“.
-- **Anzeige:** „X von Y geschafft“ und 3 Punkte pro Karte (●●○).
-- **Speicher:** `localStorage` auf dem Gerät. **Zurücksetzen** nur über den Code: Feld `"durchlauf"` in der Listendatei erhöhen. Kein Knopf dafür.
+- **Runden:** Sind alle Vokabeln geschafft, zählt das als eine Runde. Der Fortschritt wird geleert, beim nächsten Antippen beginnt die nächste Runde.
+- **Anzeige Startseite:** „🏆 N× komplett geschafft“ (auch bei 0), „X von Y geschafft“ und die Stufen „○○○ 9 ●○○ 8 ●●○ 5 ●●● 2“.
+- **Anzeige Abfrage:** „X von Y geschafft“ und 3 Punkte pro Karte (●●○), keine Rundenzahl.
+- **Speicher:** `localStorage` auf dem Gerät. **Zurücksetzen** nur über den Code: Feld `"durchlauf"` in der Listendatei erhöhen (setzt Fortschritt und Runden zurück). Kein Knopf dafür.
 - **Listenformat:** `lists/index.json` ist nur ein Array von IDs (`["en-pick-up-a"]`). Titel, Fach und `durchlauf` stehen in der Listendatei. `strikt` entfällt, es wird immer streng geprüft.
 - **Hosting:** öffentliches Repo `vokabeltrainer` auf GitHub Pages (kein GitHub Pro).
 - **Tests:** E2E mit Playwright (Python, pytest), ohne Projekt-Abhängigkeiten über `uv run --with`.

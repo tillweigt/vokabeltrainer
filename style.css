@@ -80,6 +80,12 @@ button {
   font-weight: 600;
 }
 
+.list-rounds {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.9rem;
+}
+
 .list-progress {
   display: block;
   font-size: 0.9rem;
@@ -224,6 +230,10 @@ button {
 #done {
   padding-top: 40px;
   text-align: center;
+}
+
+.done-rounds {
+  font-weight: 600;
 }
 
 .celebrate {
