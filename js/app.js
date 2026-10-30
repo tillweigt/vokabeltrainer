@@ -2,23 +2,39 @@
 import {
   MASTERY_TARGET,
   PORTION_SIZE,
+  addStars,
   appendHistory,
+  balance,
   buildCards,
+  cardRef,
   countByHits,
   countMastered,
   drawPortion,
+  formatShortDate,
   isCorrect,
+  lastRedemptions,
+  localIsoDate,
+  parseRedemption,
   recordAnswer,
+  redeem,
+  restoreQueue,
+  roundBonus,
+  starsFor,
   startRound,
   weight,
 } from "./logic.js";
 import {
+  clearPortion,
   loadHistory,
+  loadPortion,
   loadProgress,
   loadRounds,
+  loadStars,
   saveHistory,
+  savePortion,
   saveProgress,
   saveRounds,
+  saveStars,
 } from "./storage.js";
 
 const MIX_SUBJECT = "Englisch"; // die Super-Liste mischt alle Listen dieses Fachs
@@ -35,13 +51,16 @@ const form = $("#answer-form");
 const input = $("#answer");
 const submitButton = $("#submit");
 const feedback = $("#feedback");
+const redeemInput = $("#redeem-amount");
 
 let lists = []; // alle Vokabellisten aus lists/
 
 // Die laufende Abfrage. Zwei Arten:
 // - mode "list": eine einzelne Liste, siehe startList()
-// - mode "mix":  eine 10er-Portion der Super-Liste, siehe startMix()
+// - mode "mix":  eine Portion der Super-Liste, siehe startMix()
 let session = null;
+
+let pendingRedemption = null; // Anzahl Sterne, die auf „Ja“ zum Einlösen wartet
 
 // ---------- Hilfsfunktionen ----------
 
@@ -83,14 +102,40 @@ function mixLists() {
   return lists.filter((list) => list.fach === MIX_SUBJECT);
 }
 
+function mixCards() {
+  return mixLists().flatMap(buildCards);
+}
+
 /** Jede Antwort landet im Verlauf der Vokabel, egal ob aus Liste oder Super-Liste. */
 function rememberAnswer(card, correct) {
   saveHistory(card.listId, appendHistory(loadHistory(card.listId), card.key, correct));
 }
 
+/** Sterne, die die nächste richtige Antwort auf diese Karte bringt */
+function starsForCard(card) {
+  return starsFor(loadHistory(card.listId)[card.key]);
+}
+
+function earnStars(stars) {
+  if (stars > 0) saveStars(addStars(loadStars(), stars));
+}
+
+/** Gespeicherte, angefangene Portion der Super-Liste, oder null */
+function savedPortion() {
+  const saved = loadPortion();
+  const valid =
+    saved &&
+    Array.isArray(saved.refs) &&
+    [saved.answered, saved.correct, saved.stars].every(Number.isInteger);
+  if (!valid) return null;
+  const queue = restoreQueue(saved.refs, mixCards());
+  return queue.length > 0 ? { ...saved, queue } : null;
+}
+
 // ---------- Startseite ----------
 
 function renderStart() {
+  renderStars();
   const container = $("#lists");
   container.replaceChildren();
   if (mixLists().length > 0) container.append(renderMixButton());
@@ -103,19 +148,32 @@ function renderStart() {
   }
 }
 
+/** Kontostand, Einlöse-Feld (zurückgesetzt) und die letzten 3 Einlösungen */
+function renderStars() {
+  const ledger = loadStars();
+  $("#stars-balance").textContent = `⭐ ${plural(balance(ledger), "Stern", "Sterne")}`;
+  pendingRedemption = null;
+  $("#redeem-confirm").hidden = true;
+  $("#redeem-error").hidden = true;
+  const items = lastRedemptions(ledger).map((r) =>
+    element("li", "", `${r.amount} ⭐ eingelöst am ${formatShortDate(r.date)}`),
+  );
+  $("#redemptions").replaceChildren(...items);
+}
+
 function renderMixButton() {
   const sources = mixLists();
   const count = sources.reduce((sum, list) => sum + list.items.length, 0);
+  const saved = savedPortion();
+  const subtitle = saved
+    ? `weiter bei Karte ${saved.answered + 1} von ${saved.answered + saved.queue.length}`
+    : `${plural(count, "Vokabel", "Vokabeln")} aus ${plural(sources.length, "Liste", "Listen")}` +
+      ` · immer ${PORTION_SIZE} Karten`;
   const button = element("button", "list-button mix-button");
   button.type = "button";
   button.append(
     element("span", "list-title", `🔀 Alle ${MIX_SUBJECT}-Vokabeln`),
-    element(
-      "span",
-      "list-progress",
-      `${plural(count, "Vokabel", "Vokabeln")} aus ${plural(sources.length, "Liste", "Listen")}` +
-        ` · immer ${PORTION_SIZE} Karten`,
-    ),
+    element("span", "list-progress", subtitle),
   );
   button.addEventListener("click", startMix);
   return button;
@@ -164,15 +222,37 @@ function startList(list) {
   beginQuiz();
 }
 
+/** Setzt eine angefangene Portion fort oder zieht eine neue. */
 function startMix() {
-  const cards = mixLists().flatMap(buildCards);
-  const histories = Object.fromEntries(
-    mixLists().map((list) => [list.id, loadHistory(list.id)]),
-  );
-  const portion = drawPortion(cards, (card) => weight(histories[card.listId][card.key]));
-  if (portion.length === 0) return;
-  session = { mode: "mix", queue: portion, total: portion.length, answered: 0, correct: 0 };
+  const saved = savedPortion();
+  if (saved) {
+    const { queue, answered, correct, stars } = saved;
+    session = { mode: "mix", queue, answered, correct, stars, total: answered + queue.length };
+  } else {
+    const histories = Object.fromEntries(
+      mixLists().map((list) => [list.id, loadHistory(list.id)]),
+    );
+    const portion = drawPortion(mixCards(), (card) => weight(histories[card.listId][card.key]));
+    if (portion.length === 0) return;
+    session = { mode: "mix", queue: portion, answered: 0, correct: 0, stars: 0, total: portion.length };
+    saveMixPortion();
+  }
   beginQuiz();
+}
+
+function startNewMix() {
+  clearPortion();
+  startMix();
+}
+
+/** Speichert, was von der Portion noch übrig ist (damit es nach einer Pause weitergeht). */
+function saveMixPortion() {
+  if (session.queue.length === 0) {
+    clearPortion();
+    return;
+  }
+  const { answered, correct, stars } = session;
+  savePortion({ refs: session.queue.map(cardRef), answered, correct, stars });
 }
 
 function beginQuiz() {
@@ -187,7 +267,9 @@ function beginQuiz() {
 function showCard() {
   const card = session.queue[0];
   session.showingFeedback = false;
+  session.cardStars = starsForCard(card);
   $("#question").textContent = card.frage;
+  $("#card-stars").textContent = `⭐ ${session.cardStars}`;
   input.value = "";
   input.className = "";
   feedback.hidden = true;
@@ -196,6 +278,7 @@ function showCard() {
 }
 
 function updateStatus(card) {
+  $("#quiz-balance").textContent = `⭐ ${balance(loadStars())}`;
   const status = $("#quiz-status");
   const dots = $("#dots");
   if (session.mode === "mix") {
@@ -215,31 +298,37 @@ function checkAnswer() {
   if (input.value.trim() === "") return; // leere Eingabe zählt nicht als Fehler
   const card = session.queue[0];
   const correct = isCorrect(input.value, card.antworten);
+  const earned = correct ? session.cardStars : 0;
+  earnStars(earned);
   rememberAnswer(card, correct);
+  session.queue = session.queue.slice(1); // jede Karte nur einmal pro Durchgang
   if (session.mode === "list") {
+    clearPortion(); // in einer normalen Liste geantwortet: angefangene Portion verwerfen
     session.progress = recordAnswer(session.progress, card, correct);
     saveProgress(session.list, session.progress);
   } else {
     session.answered += 1;
     if (correct) session.correct += 1;
+    session.stars += earned;
+    saveMixPortion();
   }
-  session.queue = session.queue.slice(1); // jede Karte nur einmal pro Durchgang
   session.showingFeedback = true;
-  showFeedback(card, correct);
+  showFeedback(card, correct, earned);
   updateStatus(card);
   submitButton.textContent = "Weiter";
 }
 
-function showFeedback(card, correct) {
+function showFeedback(card, correct, earned) {
   feedback.replaceChildren();
   feedback.className = correct ? "correct" : "wrong";
   input.classList.add(correct ? "correct" : "wrong");
   if (correct) {
+    feedback.append(element("strong", "", `Richtig! +${earned} ⭐`));
     const justMastered =
       session.mode === "list" && (session.progress[card.key] ?? 0) >= MASTERY_TARGET;
-    feedback.append(
-      element("strong", "", justMastered ? "Richtig! Diese Vokabel hast du geschafft. ⭐" : "Richtig!"),
-    );
+    if (justMastered) {
+      feedback.append(element("span", "also", "Diese Vokabel hast du geschafft! 🎉"));
+    }
   } else {
     const [solution, ...others] = card.antworten;
     feedback.append(
@@ -273,10 +362,12 @@ function nextCard() {
 
 // ---------- Ende ----------
 
-/** Alle Vokabeln geschafft: Runde zählen und den Fortschritt für die nächste Runde leeren. */
+/** Alle Vokabeln geschafft: Runde zählen, 🏆-Bonus gutschreiben, Fortschritt leeren. */
 function finishRound() {
   session.rounds = loadRounds(session.list) + 1;
   saveRounds(session.list, session.rounds);
+  session.bonus = roundBonus(session.cards.length);
+  earnStars(session.bonus);
   session.progress = {};
   saveProgress(session.list, session.progress);
 }
@@ -286,12 +377,14 @@ function showDone() {
   $("#done-text").textContent =
     `Alle ${session.cards.length} Vokabeln ${MASTERY_TARGET}× richtig. Super!`;
   $("#done-rounds").textContent = roundsText(session.rounds);
+  $("#done-bonus").textContent = `+${session.bonus} ⭐ Bonus`;
   showScreen("done");
 }
 
 function showMixDone() {
   input.blur();
   $("#mix-result").textContent = `${session.correct} von ${session.total} richtig`;
+  $("#mix-stars").textContent = `+${session.stars} ⭐`;
   showScreen("mixDone");
 }
 
@@ -302,7 +395,7 @@ function backToStart() {
   showScreen("start");
 }
 
-// ---------- Ereignisse ----------
+// ---------- Ereignisse: Abfrage ----------
 
 form.addEventListener("submit", (event) => {
   event.preventDefault(); // sonst würde der Browser die Seite neu laden
@@ -324,12 +417,39 @@ submitButton.addEventListener("mousedown", (event) => event.preventDefault());
 
 $("#back").addEventListener("click", backToStart);
 $("#done-back").addEventListener("click", backToStart);
-$("#mix-again").addEventListener("click", startMix);
+$("#mix-again").addEventListener("click", startNewMix);
 $("#mix-back").addEventListener("click", backToStart);
+
+// ---------- Ereignisse: Sterne einlösen ----------
+
+$("#redeem-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  const result = parseRedemption(redeemInput.value, balance(loadStars()));
+  const error = $("#redeem-error");
+  if (result.error) {
+    error.textContent = result.error;
+    error.hidden = false;
+    return;
+  }
+  error.hidden = true;
+  pendingRedemption = result.amount;
+  $("#redeem-question").textContent = `${result.amount} ⭐ wirklich einlösen?`;
+  $("#redeem-confirm").hidden = false;
+  redeemInput.blur(); // Tastatur schließen, damit die Rückfrage zu sehen ist
+});
+
+$("#redeem-yes").addEventListener("click", () => {
+  saveStars(redeem(loadStars(), pendingRedemption, localIsoDate(new Date())));
+  redeemInput.value = "";
+  renderStars();
+});
+
+$("#redeem-no").addEventListener("click", renderStars);
 
 // ---------- Start ----------
 
 async function init() {
+  renderStars(); // der Kontostand ist auch zu sehen, wenn die Listen nicht laden
   try {
     const ids = await loadJson("lists/index.json");
     lists = await Promise.all(ids.map((id) => loadJson(`lists/${id}.json`)));

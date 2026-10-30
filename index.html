@@ -23,6 +23,29 @@
     <main>
       <section id="start">
         <h1>Vokabeltrainer</h1>
+        <div class="stars-panel">
+          <p id="stars-balance" class="stars-balance"></p>
+          <!-- novalidate: eigene Prüfung in parseRedemption statt der Browser-Sprechblase -->
+          <form id="redeem-form" class="redeem-form" novalidate>
+            <input
+              id="redeem-amount"
+              type="text"
+              inputmode="numeric"
+              pattern="[0-9]*"
+              autocomplete="off"
+              placeholder="Anzahl"
+              aria-label="Wie viele Sterne einlösen?"
+            >
+            <button id="redeem-submit" type="submit">Einlösen</button>
+          </form>
+          <div id="redeem-confirm" class="redeem-confirm" hidden>
+            <span id="redeem-question"></span>
+            <button id="redeem-yes" type="button">Ja</button>
+            <button id="redeem-no" type="button" class="secondary">Abbrechen</button>
+          </div>
+          <p id="redeem-error" class="error" hidden></p>
+          <ul id="redemptions" class="redemptions"></ul>
+        </div>
         <div id="lists"></div>
         <p id="load-error" class="error" hidden></p>
       </section>
@@ -30,9 +53,13 @@
       <section id="quiz" hidden>
         <div class="quiz-header">
           <button id="back" type="button">‹ Listen</button>
+          <span id="quiz-balance" class="quiz-balance"></span>
           <span id="quiz-status"></span>
         </div>
-        <p id="question" class="question"></p>
+        <div class="question-row">
+          <p id="question" class="question"></p>
+          <span id="card-stars" class="card-stars"></span>
+        </div>
         <p id="dots" class="dots"></p>
         <form id="answer-form">
           <input
@@ -56,12 +83,14 @@
         <h1>Liste geschafft!</h1>
         <p id="done-text"></p>
         <p id="done-rounds" class="done-rounds"></p>
+        <p id="done-bonus" class="done-stars"></p>
         <button id="done-back" type="button">Zur Übersicht</button>
       </section>
 
       <section id="mix-done" hidden>
         <p class="celebrate">🎯</p>
         <h1 id="mix-result"></h1>
+        <p id="mix-stars" class="done-stars"></p>
         <div class="done-buttons">
           <button id="mix-again" type="button">Weiter üben</button>
           <button id="mix-back" type="button" class="secondary">Zur Übersicht</button>

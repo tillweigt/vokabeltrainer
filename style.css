@@ -8,6 +8,9 @@
   --border: #d2d2d7;
   --accent: #0a66c2;
   --accent-background: #eaf2fb;
+  --star: #9a5b00;
+  --star-background: #fff6dc;
+  --star-border: #f2c94c;
   --good: #1a7f37;
   --good-background: #e6f4ea;
   --bad: #c62828;
@@ -126,6 +129,61 @@ button {
   color: var(--bad);
 }
 
+/* ---------- Sterne (Startseite) ---------- */
+
+.stars-panel {
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  border: 2px solid var(--star-border);
+  border-radius: 14px;
+  background: var(--star-background);
+}
+
+.stars-balance {
+  margin: 0 0 10px;
+  font-size: 1.6rem;
+  font-weight: 700;
+}
+
+.redeem-form,
+.redeem-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+#redeem-amount {
+  width: 7rem;
+  padding: 10px 12px;
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 20px; /* mindestens 16px, sonst zoomt Safari beim Antippen */
+}
+
+.redeem-confirm {
+  margin-top: 10px;
+  font-weight: 600;
+}
+
+#redeem-question {
+  flex-basis: 100%; /* Frage in eigener Zeile, Knöpfe nebeneinander darunter */
+}
+
+#redeem-error {
+  margin: 8px 0 0;
+}
+
+.redemptions {
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
 /* ---------- Abfrage ---------- */
 
 .quiz-header {
@@ -148,10 +206,28 @@ button {
   color: var(--muted);
 }
 
+.quiz-balance {
+  font-weight: 600;
+}
+
+.question-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .question {
   margin: 12px 0 4px;
   font-size: 1.5rem;
   font-weight: 600;
+}
+
+.card-stars {
+  flex-shrink: 0;
+  color: var(--star);
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .dots {
@@ -194,7 +270,10 @@ button {
 #submit,
 #done-back,
 #mix-again,
-#mix-back {
+#mix-back,
+#redeem-submit,
+#redeem-yes,
+#redeem-no {
   min-height: 52px;
   padding: 0 18px;
   border: 2px solid var(--accent);
@@ -204,7 +283,14 @@ button {
   font-weight: 600;
 }
 
-#mix-back {
+#redeem-submit,
+#redeem-yes,
+#redeem-no {
+  min-height: 48px;
+}
+
+#mix-back,
+#redeem-no {
   background: var(--surface);
   color: var(--accent);
 }
@@ -257,6 +343,12 @@ button {
 
 .done-buttons button {
   min-width: 14rem;
+}
+
+.done-stars {
+  color: var(--star);
+  font-size: 1.3rem;
+  font-weight: 700;
 }
 
 .done-rounds {

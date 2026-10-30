@@ -1,6 +1,7 @@
 """E2E-Tests: spielen die App im (simulierten) iPhone-Browser durch."""
 
 import json
+from datetime import date
 
 import pytest
 from conftest import ROOT
@@ -55,6 +56,16 @@ def history(page: Page, list_id: str) -> dict:
         "(id) => JSON.parse(localStorage.getItem(`vokabeltrainer:v1:${id}:verlauf`) || '{}')",
         list_id,
     )
+
+
+def set_stars(page: Page, earned: int, redemptions: tuple = ()) -> None:
+    """Setzt das Sternekonto direkt im Speicher und lädt die Startseite neu."""
+    page.goto("/")
+    page.evaluate(
+        "(ledger) => localStorage.setItem('vokabeltrainer:v1:sterne', JSON.stringify(ledger))",
+        {"earned": earned, "redemptions": list(redemptions)},
+    )
+    page.reload()
 
 
 def real_lists() -> dict:
@@ -114,8 +125,11 @@ def test_richtige_antwort(page: Page, mini_list):
     open_list(page, "Testliste")
     expect(page.locator("#dots")).to_have_text("○○○")
     expect(page.locator("#quiz-status")).to_have_text("0 von 4 geschafft")
+    expect(page.locator("#card-stars")).to_have_text("⭐ 8")
+    expect(page.locator("#quiz-balance")).to_have_text("⭐ 0")
     answer(page, solution_for(page, mini_list))
-    expect(page.locator("#feedback")).to_have_text("Richtig!")
+    expect(page.locator("#feedback")).to_have_text("Richtig! +8 ⭐")
+    expect(page.locator("#quiz-balance")).to_have_text("⭐ 8")
     expect(page.locator("#dots")).to_have_text("●○○")
     expect(page.locator("#submit")).to_have_text("Weiter")
 
@@ -300,28 +314,29 @@ def test_super_liste_ganz_oben(page: Page):
     expect(first).to_have_class("list-button mix-button")
     expect(first.locator(".list-title")).to_have_text("🔀 Alle Englisch-Vokabeln")
     expect(first.locator(".list-progress")).to_have_text(
-        "53 Vokabeln aus 2 Listen · immer 10 Karten"
+        "53 Vokabeln aus 2 Listen · immer 5 Karten"
     )
 
 
 def test_super_liste_mit_echten_listen(page: Page):
     data = real_lists()
     open_mix(page)
-    expect(page.locator("#quiz-status")).to_have_text("Karte 1 von 10")
+    expect(page.locator("#quiz-status")).to_have_text("Karte 1 von 5")
     expect(page.locator("#dots")).to_be_hidden()
     expect(page.locator("#answer")).to_be_focused()
 
     asked = []
-    for _ in range(10):
+    for _ in range(5):
         asked.append(question(page))
         answer_correctly_and_continue(page, data)
-    assert len(set(asked)) == 10  # keine Vokabel doppelt
-    expect(page.locator("#mix-result")).to_have_text("10 von 10 richtig")
+    assert len(set(asked)) == 5  # keine Vokabel doppelt
+    expect(page.locator("#mix-result")).to_have_text("5 von 5 richtig")
+    expect(page.locator("#mix-stars")).to_have_text("+40 ⭐")  # 5 neue Vokabeln à 8
     expect(page.locator("#error-overlay")).to_be_hidden()
 
     # „Weiter üben“: nächste Portion, Tastatur bleibt offen
     page.click("#mix-again")
-    expect(page.locator("#quiz-status")).to_have_text("Karte 1 von 10")
+    expect(page.locator("#quiz-status")).to_have_text("Karte 1 von 5")
     expect(page.locator("#answer")).to_be_focused()
 
 
@@ -377,6 +392,138 @@ def test_verlauf_bleibt_bei_durchlauf(page: Page, mini_list):
     button = page.locator(".list-button", has_text="Testliste")
     expect(button.locator(".level")).to_have_text(["○○○ 4", "●○○ 0", "●●○ 0", "●●● 0"])
     assert history(page, "test-mini") == {first_en: "R"}
+
+
+def test_portion_wird_nach_pause_fortgesetzt(page: Page, mini_list):
+    open_mix(page)
+    for _ in range(2):
+        answer_correctly_and_continue(page, mini_list)
+
+    page.reload()  # wie App schließen und später wieder öffnen
+    mix = page.locator(".mix-button")
+    expect(mix.locator(".list-progress")).to_have_text("weiter bei Karte 3 von 4")
+    mix.click()
+    expect(page.locator("#quiz-status")).to_have_text("Karte 3 von 4")
+    for _ in range(2):
+        answer_correctly_and_continue(page, mini_list)
+    expect(page.locator("#mix-result")).to_have_text("4 von 4 richtig")
+    expect(page.locator("#mix-stars")).to_have_text("+32 ⭐")  # auch die Sterne vor der Pause
+
+    # Fertige Portion ist weg: nächstes Mal neu ziehen
+    page.click("#mix-back")
+    expect(mix.locator(".list-progress")).to_have_text("4 Vokabeln aus 1 Liste · immer 5 Karten")
+
+
+def test_portion_bleibt_beim_blossen_oeffnen_einer_liste(page: Page, mini_list):
+    open_mix(page)
+    answer_correctly_and_continue(page, mini_list)
+    page.click("#back")
+    page.locator(".list-button", has_text="Testliste").click()
+    page.click("#back")  # Liste nur geöffnet, nicht geantwortet
+    expect(page.locator(".mix-button .list-progress")).to_have_text("weiter bei Karte 2 von 4")
+
+
+def test_portion_verworfen_nach_antwort_in_liste(page: Page, mini_list):
+    open_mix(page)
+    answer_correctly_and_continue(page, mini_list)
+    page.click("#back")
+    page.locator(".list-button", has_text="Testliste").click()
+    answer(page, "falsch")  # in der normalen Liste geantwortet
+    page.click("#back")
+    expect(page.locator(".mix-button .list-progress")).to_have_text(
+        "4 Vokabeln aus 1 Liste · immer 5 Karten"
+    )
+    page.locator(".mix-button").click()
+    expect(page.locator("#quiz-status")).to_have_text("Karte 1 von 4")
+
+
+# ---------- Sterne ----------
+
+
+def test_falsch_bringt_keine_sterne(page: Page, mini_list):
+    open_list(page, "Testliste")
+    answer(page, "falsch")
+    expect(page.locator("#feedback")).not_to_contain_text("⭐")
+    expect(page.locator("#quiz-balance")).to_have_text("⭐ 0")
+
+
+def test_sterne_sinken_mit_jeder_richtigen_antwort(page: Page, mini_list):
+    open_list(page, "Testliste")
+    for _ in range(len(mini_list["items"])):  # 1. Durchgang: jede Vokabel einmal richtig
+        expect(page.locator("#card-stars")).to_have_text("⭐ 8")
+        answer_correctly_and_continue(page, mini_list)
+    expect(page.locator("#card-stars")).to_have_text("⭐ 7")  # 2. Durchgang
+
+
+def test_sterne_fuer_eine_runde_mit_bonus(page: Page, mini_list):
+    open_list(page, "Testliste")
+    play_full_round(page, mini_list)
+    expect(page.locator("#done-bonus")).to_have_text("+4 ⭐ Bonus")
+    page.click("#done-back")
+    # je Vokabel 8 + 7 + 6 = 21, mal 4 Vokabeln, plus 4 Bonus
+    expect(page.locator("#stars-balance")).to_have_text("⭐ 88 Sterne")
+
+
+def test_einloesen(page: Page):
+    set_stars(page, 50)
+    expect(page.locator("#stars-balance")).to_have_text("⭐ 50 Sterne")
+    expect(page.locator("#redeem-amount")).to_have_attribute("inputmode", "numeric")
+
+    page.fill("#redeem-amount", "20")
+    page.press("#redeem-amount", "Enter")
+    expect(page.locator("#redeem-question")).to_have_text("20 ⭐ wirklich einlösen?")
+    expect(page.locator("#stars-balance")).to_have_text("⭐ 50 Sterne")  # noch nicht gebucht
+
+    page.click("#redeem-yes")
+    expect(page.locator("#stars-balance")).to_have_text("⭐ 30 Sterne")
+    expect(page.locator("#redeem-confirm")).to_be_hidden()
+    expect(page.locator("#redeem-amount")).to_have_value("")
+    today = date.today()
+    expect(page.locator("#redemptions li")).to_have_text(
+        [f"20 ⭐ eingelöst am {today.day}.{today.month}."]
+    )
+
+    page.reload()  # bleibt gespeichert
+    expect(page.locator("#stars-balance")).to_have_text("⭐ 30 Sterne")
+
+
+def test_einloesen_abbrechen(page: Page):
+    set_stars(page, 50)
+    page.fill("#redeem-amount", "20")
+    page.click("#redeem-submit")
+    page.click("#redeem-no")
+    expect(page.locator("#redeem-confirm")).to_be_hidden()
+    expect(page.locator("#stars-balance")).to_have_text("⭐ 50 Sterne")
+    expect(page.locator("#redemptions li")).to_have_count(0)
+
+
+@pytest.mark.parametrize(
+    ("typed", "message"),
+    [
+        ("51", "So viele Sterne hast du nicht (Kontostand: 50)."),
+        ("0", "Bitte mindestens 1 Stern eingeben."),
+        ("abc", "Bitte eine ganze Zahl eingeben."),
+    ],
+)
+def test_einloesen_fehler(page: Page, typed, message):
+    set_stars(page, 50)
+    page.fill("#redeem-amount", typed)
+    page.click("#redeem-submit")
+    expect(page.locator("#redeem-error")).to_have_text(message)
+    expect(page.locator("#redeem-confirm")).to_be_hidden()
+    expect(page.locator("#stars-balance")).to_have_text("⭐ 50 Sterne")
+
+
+def test_nur_die_letzten_drei_einloesungen(page: Page):
+    set_stars(page, 100)
+    for amount in ["1", "2", "3", "4"]:
+        page.fill("#redeem-amount", amount)
+        page.click("#redeem-submit")
+        page.click("#redeem-yes")
+    items = page.locator("#redemptions li")
+    expect(items).to_have_count(3)
+    expect(items.first).to_contain_text("4 ⭐ eingelöst")
+    expect(page.locator("#stars-balance")).to_have_text("⭐ 90 Sterne")
 
 
 # ---------- Sonstiges ----------

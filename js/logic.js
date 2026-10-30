@@ -5,7 +5,16 @@
 export const MASTERY_TARGET = 3;
 
 /** So viele Karten hat eine Portion der Super-Liste. */
-export const PORTION_SIZE = 10;
+export const PORTION_SIZE = 5;
+
+/** Sterne für die erste richtige Antwort einer Vokabel. */
+export const STARS_START = 8;
+
+/** Nach so vielen richtigen Antworten halbiert sich der Sterne-Wert einer Vokabel. */
+export const STARS_HALF_LIFE = MASTERY_TARGET;
+
+/** Bonus pro Vokabel, wenn eine Liste komplett geschafft ist (🏆). */
+export const ROUND_BONUS_PER_CARD = 1;
 
 /** So viele der letzten Antworten zählen für das Gewicht in der Super-Liste. */
 export const RECENT_ANSWERS = 5;
@@ -136,4 +145,89 @@ export function drawPortion(cards, weightOf, size = PORTION_SIZE, random = Math.
     portion.push(pool.splice(index, 1)[0].card);
   }
   return portion;
+}
+
+/** Merkt sich eine Karte als { listId, key }, damit eine Portion gespeichert werden kann. */
+export function cardRef(card) {
+  return { listId: card.listId, key: card.key };
+}
+
+/**
+ * Holt gespeicherte Karten wieder aus den aktuellen Karten, in derselben Reihenfolge.
+ * Vokabeln, die es nach einem Update nicht mehr gibt, werden übersprungen.
+ */
+export function restoreQueue(refs, cards) {
+  return refs
+    .map((ref) => cards.find((card) => card.listId === ref.listId && card.key === ref.key))
+    .filter((card) => card !== undefined);
+}
+
+// ---------- Sterne ----------
+
+/**
+ * Sterne für die nächste richtige Antwort: ⌈8 · 2^(−k/3)⌉, k = bisher richtige Antworten.
+ * Alle 3 richtigen Antworten halbiert sich der Wert; durch das Aufrunden bleibt er
+ * mindestens 1. Fehler zählen nicht mit, deshalb lässt sich das nicht austricksen.
+ */
+export function starsFor(history = "") {
+  const k = [...history].filter((answer) => answer === "R").length;
+  const value = Math.ceil(STARS_START * 2 ** (-k / STARS_HALF_LIFE));
+  return Math.max(1, value); // nur Absicherung, falls 2^(−k/3) bei riesigem k auf 0 rundet
+}
+
+/** 🏆-Bonus für eine komplett geschaffte Liste. */
+export function roundBonus(cardCount) {
+  return cardCount * ROUND_BONUS_PER_CARD;
+}
+
+/** Leeres Sternekonto: verdient insgesamt und alle Einlösungen. */
+export function emptyLedger() {
+  return { earned: 0, redemptions: [] };
+}
+
+export function balance(ledger) {
+  return ledger.earned - ledger.redemptions.reduce((sum, r) => sum + r.amount, 0);
+}
+
+export function addStars(ledger, stars) {
+  return { ...ledger, earned: ledger.earned + stars };
+}
+
+export function redeem(ledger, amount, date) {
+  return { ...ledger, redemptions: [...ledger.redemptions, { date, amount }] };
+}
+
+/** Die letzten Einlösungen, neueste zuerst. */
+export function lastRedemptions(ledger, count = 3) {
+  return ledger.redemptions.slice(-count).reverse();
+}
+
+/**
+ * Prüft die Eingabe im Einlöse-Feld.
+ * Ergebnis: { amount } wenn alles passt, sonst { error } mit einem Hinweis zum Anzeigen.
+ */
+export function parseRedemption(text, available) {
+  const trimmed = text.trim();
+  if (!/^\d+$/.test(trimmed)) return { error: "Bitte eine ganze Zahl eingeben." };
+  const amount = Number(trimmed);
+  if (amount < 1) return { error: "Bitte mindestens 1 Stern eingeben." };
+  if (amount > available) {
+    return { error: `So viele Sterne hast du nicht (Kontostand: ${available}).` };
+  }
+  return { amount };
+}
+
+// ---------- Datum ----------
+
+/** Lokales Datum als "2026-10-30" (toISOString würde in UTC umrechnen). */
+export function localIsoDate(date) {
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
+/** "2026-10-05" → "5.10." */
+export function formatShortDate(isoDate) {
+  const [, month, day] = isoDate.split("-");
+  return `${Number(day)}.${Number(month)}.`;
 }

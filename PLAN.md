@@ -4,6 +4,36 @@ Dieses Dokument fasst ein Vorgespräch zusammen. Es dient als Grundlage, um die 
 
 ---
 
+## Stand: Sterne (festgelegt am 30.10.2026)
+
+Ergänzt und ändert die Abschnitte „Stand: …“ darunter. Bei Widersprüchen gilt dieser Abschnitt.
+
+**Sterne verdienen**
+- Jede richtige Antwort bringt Sterne, in Liste und Super-Liste gleich: **⌈8 · 2^(−k/3)⌉**. k = Anzahl der bisherigen richtigen Antworten dieser Vokabel (`R` im Verlauf vor dieser Antwort). Ergibt 8, 7, 6, 4, 4, 3, 2, 2, 2, 1, 1 …: Alle 3 richtigen Antworten halbiert sich der Wert, durch das Aufrunden bleibt es bei mindestens 1.
+- Falsche Antwort: 0 Sterne, es wird nichts abgezogen. Fehler verändern den Wert nicht, deshalb lässt sich das nicht austricksen.
+- Mehrdeutigkeit: Die abgefragte Vokabel bekommt die Sterne.
+- **🏆-Bonus:** Wird eine Liste komplett geschafft, gibt es +1 ⭐ pro Vokabel der Liste (auch wenn eine schon früher komplett geschaffte Liste nachträglich als Runde gezählt wird).
+- **Start bei 0 ⭐**, keine rückwirkende Gutschrift. Der bisherige Verlauf zählt aber für k.
+
+**Anzeige**
+- Abfrage: `⭐ 3` neben der Frage (Wert der aktuellen Vokabel), nach einer richtigen Antwort „Richtig! +3 ⭐“. Der Kontostand steht oben in der Kopfzeile.
+- Ende einer Portion der Super-Liste: „4 von 5 richtig · +23 ⭐“. Bei „Liste geschafft!“: „+29 ⭐ Bonus“.
+
+**Kontostand und Einlösen**
+- Startseite ganz oben: „⭐ 128 Sterne“, Zahlenfeld und Knopf „Einlösen“, darunter die letzten 3 Einlösungen mit Datum.
+- Kontostand = verdient − eingelöst, getrennt gespeichert (nicht aus dem Verlauf berechnet), damit Korrekturen an Listen keine Sterne löschen.
+- Einlösen: ganze Zahl von 1 bis zum Kontostand, Zahlentastatur, Rückfrage auf der Seite („20 ⭐ wirklich einlösen?“ mit „Ja“ und „Abbrechen“).
+- Die Belohnung selbst gibt es im echten Leben. Die Sterne liegen nur auf dem Gerät: Gehen die Daten verloren, sind die Sterne weg.
+
+**Super-Liste (Änderung)**
+- Eine Portion hat **5** statt 10 Karten.
+- Eine angefangene Portion wird gespeichert und fortgesetzt (App geschlossen, Akku leer, Pause, zurück zur Startseite). Der Knopf zeigt dann „weiter bei Karte 4 von 5“.
+- Sie wird verworfen, sobald in einer normalen Liste **geantwortet** wird (Öffnen allein reicht nicht). Fehlt eine gespeicherte Vokabel nach einem Update, wird sie übersprungen. Bleibt nichts übrig, wird neu gezogen.
+
+**Tests:** Unit-Tests für die Formel, den Kontostand und das Speichern der Portion, E2E-Tests für 5er-Portion, Sterne und Einlösen.
+
+---
+
 ## Stand: Verlauf und Super-Liste (festgelegt am 29.10.2026)
 
 Ergänzt und ändert den Abschnitt „Stand: MVP“ darunter. Bei Widersprüchen gilt dieser Abschnitt.

@@ -2,6 +2,8 @@
 // Jeder Zugriff ist abgesichert: Fehlt der Speicher oder ist er kaputt,
 // läuft die App trotzdem weiter, nur ohne gespeicherten Fortschritt.
 
+import { emptyLedger } from "./logic.js";
+
 const PREFIX = "vokabeltrainer:v1";
 
 function read(key, fallback) {
@@ -57,4 +59,33 @@ export function loadHistory(listId) {
 
 export function saveHistory(listId, history) {
   write(historyKey(listId), history);
+}
+
+/** Sternekonto: { earned, redemptions: [{ date, amount }] } */
+export function loadStars() {
+  const ledger = read(`${PREFIX}:sterne`, null);
+  const valid =
+    ledger && Number.isInteger(ledger.earned) && Array.isArray(ledger.redemptions);
+  return valid ? ledger : emptyLedger();
+}
+
+export function saveStars(ledger) {
+  write(`${PREFIX}:sterne`, ledger);
+}
+
+/** Angefangene Portion der Super-Liste: { refs, answered, correct, stars } oder null */
+export function loadPortion() {
+  return read(`${PREFIX}:portion`, null);
+}
+
+export function savePortion(portion) {
+  write(`${PREFIX}:portion`, portion);
+}
+
+export function clearPortion() {
+  try {
+    localStorage.removeItem(`${PREFIX}:portion`);
+  } catch (error) {
+    console.warn("Portion konnte nicht gelöscht werden:", error);
+  }
 }

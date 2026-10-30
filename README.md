@@ -3,7 +3,8 @@
 Eine kleine Website zum Vokabellernen auf dem iPhone. Die deutsche Vokabel wird angezeigt, die englische Lösung muss eingetippt werden.
 
 - **Einzelne Liste:** Jede offene Vokabel kommt pro Durchgang einmal. Nach 3× richtig ist sie geschafft. Sind alle geschafft, zählt 🏆 eine Runde, und es geht von vorn los.
-- **🔀 Alle Englisch-Vokabeln:** Portionen zu 10 Karten aus allen Listen. Vokabeln, die zuletzt oft falsch waren, kommen öfter dran. Grundlage ist der Verlauf jeder Vokabel (`R`/`F`), Gewicht `(F + 1) / (n + 2)` über die letzten 5 Antworten.
+- **🔀 Alle Englisch-Vokabeln:** Portionen zu 5 Karten aus allen Listen. Vokabeln, die zuletzt oft falsch waren, kommen öfter dran. Grundlage ist der Verlauf jeder Vokabel (`R`/`F`), Gewicht `(F + 1) / (n + 2)` über die letzten 5 Antworten. Eine angefangene Portion geht nach einer Pause weiter; wird zwischendurch in einer normalen Liste geantwortet, wird neu gezogen.
+- **⭐ Sterne:** Jede richtige Antwort bringt `⌈8 · 2^(−k/3)⌉` Sterne (k = wie oft die Vokabel schon richtig war, also 8, 7, 6, 4, 4, 3, 2, …, mindestens 1). Fehler bringen nichts und kosten nichts. Für eine komplett geschaffte Liste (🏆) gibt es 1 Stern pro Vokabel extra. Auf der Startseite stehen der Kontostand, ein Feld zum Einlösen und die letzten 3 Einlösungen. Die Belohnung gibt es im echten Leben.
 
 Es gibt kein Framework, keinen Build-Schritt und keinen Server-Code: nur HTML, CSS, JavaScript und JSON-Dateien.
 
@@ -51,7 +52,7 @@ Mit `make e2e ARGS="--headed --slowmo 300"` kann man zusehen.
 
 ## Fortschritt zurücksetzen
 
-Der Fortschritt liegt im Browser des jeweiligen Geräts. Um eine Liste neu zu beginnen, in der Listendatei `"durchlauf"` um 1 erhöhen und pushen. Damit gehen auch die Punkte und der Runden-Zähler 🏆 auf 0. Der Verlauf (`R`/`F`) bleibt dabei erhalten, er ist die Grundlage der Super-Liste. Wird eine einzelne Vokabel (`en`) geändert, beginnt nur diese wieder bei null, auch mit neuem Verlauf.
+Der Fortschritt liegt im Browser des jeweiligen Geräts. Um eine Liste neu zu beginnen, in der Listendatei `"durchlauf"` um 1 erhöhen und pushen. Damit gehen auch die Punkte und der Runden-Zähler 🏆 auf 0. Der Verlauf (`R`/`F`) bleibt dabei erhalten, er ist die Grundlage der Super-Liste und der Sterne. Auch der Sterne-Kontostand bleibt unberührt. Wird eine einzelne Vokabel (`en`) geändert, beginnt nur diese wieder bei null, auch mit neuem Verlauf.
 
 ## Aufbau
 
@@ -59,8 +60,8 @@ Der Fortschritt liegt im Browser des jeweiligen Geräts. Um eine Liste neu zu be
 |---|---|
 | `index.html` | Die Bildschirme: Listen, Abfrage, „Liste geschafft“, Ergebnis der Super-Liste |
 | `style.css` | Aussehen, für das iPhone optimiert |
-| `js/logic.js` | Reine Logik: Antworten prüfen, Karten bilden, Durchgänge, Zählen, Verlauf, Gewicht, Portionen |
-| `js/storage.js` | Punkte, Runden und Verlauf im `localStorage` speichern |
+| `js/logic.js` | Reine Logik: Antworten prüfen, Karten bilden, Durchgänge, Zählen, Verlauf, Gewicht, Portionen, Sterne |
+| `js/storage.js` | Punkte, Runden, Verlauf, Sterne und angefangene Portion im `localStorage` speichern |
 | `js/app.js` | Verbindet die Logik mit der Seite (Klicks, Anzeige) |
 | `lists/` | Die Vokabellisten |
 | `tools/serve.py` | Lokaler Entwicklungsserver ohne Browser-Cache |
