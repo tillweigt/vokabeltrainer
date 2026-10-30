@@ -23,6 +23,7 @@ import {
   redeem,
   restoreQueue,
   roundBonus,
+  speechText,
   starsFor,
   startRound,
   weight,
@@ -285,4 +286,19 @@ describe("Datum", () => {
     assert.equal(formatShortDate("2026-10-05"), "5.10.");
     assert.equal(formatShortDate("2026-12-28"), "28.12.");
   });
+});
+
+describe("speechText: Text zum Vorlesen", () => {
+  const cases = [
+    ["living room", "living room"],
+    ["I'm …", "I'm"],
+    ["We're from ...", "We're from"],
+    ["Are you on holiday in …?", "Are you on holiday in?"],
+    ["What’s your name?", "What's your name?"],
+  ];
+  for (const [text, expected] of cases) {
+    test(`${JSON.stringify(text)} → ${JSON.stringify(expected)}`, () => {
+      assert.equal(speechText(text), expected);
+    });
+  }
 });

@@ -19,6 +19,7 @@ import {
   redeem,
   restoreQueue,
   roundBonus,
+  speechText,
   starsFor,
   startRound,
   weight,
@@ -38,6 +39,7 @@ import {
 } from "./storage.js";
 
 const MIX_SUBJECT = "Englisch"; // die Super-Liste mischt alle Listen dieses Fachs
+const SPEECH_LANG = "en-GB"; // britisches Englisch, passend zum Schulbuch
 
 const $ = (selector) => document.querySelector(selector);
 
@@ -118,6 +120,26 @@ function starsForCard(card) {
 
 function earnStars(stars) {
   if (stars > 0) saveStars(addStars(loadStars(), stars));
+}
+
+/** Liest einen englischen Text mit der eingebauten Sprachausgabe des Geräts vor. */
+function speak(text) {
+  speechSynthesis.cancel(); // eine noch laufende Ausgabe abbrechen, damit sich nichts stapelt
+  const utterance = new SpeechSynthesisUtterance(speechText(text));
+  utterance.lang = SPEECH_LANG;
+  speechSynthesis.speak(utterance);
+}
+
+/** Knopf „🔊 Anhören“, oder null, wenn das Gerät keine Sprachausgabe hat */
+function speakButton(text) {
+  if (!("speechSynthesis" in window)) return null;
+  const button = element("button", "speak-button", "🔊 Anhören");
+  button.type = "button";
+  button.setAttribute("aria-label", "Aussprache anhören");
+  // Antippen soll dem Eingabefeld nicht den Fokus nehmen (Tastatur bleibt offen).
+  button.addEventListener("mousedown", (event) => event.preventDefault());
+  button.addEventListener("click", () => speak(text));
+  return button;
 }
 
 /** Gespeicherte, angefangene Portion der Super-Liste, oder null */
@@ -339,6 +361,9 @@ function showFeedback(card, correct, earned) {
       feedback.append(element("span", "also", `Auch richtig: ${others.join(" / ")}`));
     }
   }
+  // Vorgelesen wird immer die eigentliche Lösung der Karte, auch wenn eine Alternative getippt wurde.
+  const button = speakButton(card.antworten[0]);
+  if (button) feedback.append(button);
   feedback.hidden = false;
 }
 

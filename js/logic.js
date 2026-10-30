@@ -35,6 +35,14 @@ export function normalize(text) {
     .trim();
 }
 
+/**
+ * Text für die Sprachausgabe. Dieselbe Bereinigung wie beim Vergleich reicht:
+ * Vor allem verschwinden Platzhalter wie „…“, sonst stolpert die Stimme darüber.
+ */
+export function speechText(text) {
+  return normalize(text);
+}
+
 /** Ist die Eingabe eine der erlaubten Antworten? */
 export function isCorrect(input, answers) {
   const given = normalize(input);

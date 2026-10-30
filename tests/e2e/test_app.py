@@ -128,7 +128,7 @@ def test_richtige_antwort(page: Page, mini_list):
     expect(page.locator("#card-stars")).to_have_text("⭐ 8")
     expect(page.locator("#quiz-balance")).to_have_text("⭐ 0")
     answer(page, solution_for(page, mini_list))
-    expect(page.locator("#feedback")).to_have_text("Richtig! +8 ⭐")
+    expect(page.locator("#feedback strong")).to_have_text("Richtig! +8 ⭐")
     expect(page.locator("#quiz-balance")).to_have_text("⭐ 8")
     expect(page.locator("#dots")).to_have_text("●○○")
     expect(page.locator("#submit")).to_have_text("Weiter")
@@ -524,6 +524,51 @@ def test_nur_die_letzten_drei_einloesungen(page: Page):
     expect(items).to_have_count(3)
     expect(items.first).to_contain_text("4 ⭐ eingelöst")
     expect(page.locator("#stars-balance")).to_have_text("⭐ 90 Sterne")
+
+
+# ---------- Vorlesen ----------
+
+
+@pytest.fixture
+def spoken(page: Page):
+    """Ersetzt die Sprachausgabe durch eine Attrappe, die nur mitschreibt, was vorgelesen würde."""
+    page.add_init_script(
+        """
+        window.__spoken = [];
+        Object.defineProperty(window, "speechSynthesis", {
+          configurable: true,
+          value: {
+            speak: (utterance) => window.__spoken.push({ text: utterance.text, lang: utterance.lang }),
+            cancel: () => {},
+          },
+        });
+        """
+    )
+    return lambda: page.evaluate("window.__spoken")
+
+
+def test_vorlesen_erst_nach_dem_pruefen(page: Page, mini_list, spoken):
+    open_list(page, "Testliste")
+    expect(page.locator(".speak-button")).to_have_count(0)  # vorher würde es die Lösung verraten
+    expected = solution_for(page, mini_list).replace(" …", "")
+    answer(page, "falsch")
+
+    page.click(".speak-button")
+    assert spoken() == [{"text": expected, "lang": "en-GB"}]
+    expect(page.locator("#answer")).to_be_focused()  # Tastatur bleibt offen
+
+    page.press("#answer", "Enter")  # Return ist weiterhin „Weiter“
+    expect(page.locator("#submit")).to_have_text("Prüfen")
+    assert len(spoken()) == 1  # nur auf Knopfdruck, nicht automatisch
+
+
+def test_vorlesen_liest_die_eigene_loesung(page: Page, mini_list, spoken):
+    open_list(page, "Testliste")
+    advance_to(page, mini_list, "I'm …")
+    answer(page, "My name is")  # erlaubte Alternative
+    expect(page.locator("#feedback")).to_contain_text("Richtig")
+    page.click(".speak-button")
+    assert spoken()[-1] == {"text": "I'm", "lang": "en-GB"}
 
 
 # ---------- Sonstiges ----------

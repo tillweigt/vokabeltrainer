@@ -4,6 +4,16 @@ Dieses Dokument fasst ein Vorgespräch zusammen. Es dient als Grundlage, um die 
 
 ---
 
+## Stand: Vorlesen (festgelegt am 30.10.2026)
+
+- Knopf „🔊 Anhören“ in der Rückmeldung, **erst nach dem Prüfen** (vorher würde er die Lösung verraten), bei richtigen und falschen Antworten.
+- **Nur auf Knopfdruck**, nie automatisch. Return bleibt „Weiter“.
+- **Britisches Englisch** (`en-GB`) über die eingebaute Sprachausgabe des Geräts (Web Speech API): keine Bibliothek, keine Audiodateien, funktioniert offline.
+- Vorgelesen wird immer die eigentliche Lösung der Karte, auch wenn eine erlaubte Alternative getippt wurde. Platzhalter „…“ werden vorher entfernt.
+- Der Knopf nimmt dem Eingabefeld nicht den Fokus, die Tastatur bleibt offen.
+
+---
+
 ## Stand: Sterne (festgelegt am 30.10.2026)
 
 Ergänzt und ändert die Abschnitte „Stand: …“ darunter. Bei Widersprüchen gilt dieser Abschnitt.
