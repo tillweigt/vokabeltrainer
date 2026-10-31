@@ -82,6 +82,38 @@ Am Rechner gibt es kein Teilen-Menü. Dort wird die Datei einfach heruntergelade
 
 Das Datum der letzten Sicherung gehört zum Gerät und wird weder gesichert noch ersetzt.
 
+## Antwortprotokoll und Auswertung
+
+Jede Antwort, jede komplett geschaffte Liste (🏆) und jede Einlösung wird als Eintrag protokolliert. Das Protokoll steht in der Sicherungsdatei unter `daten["vokabeltrainer:v1:protokoll"]`. Ein Eintrag sieht so aus (alle Felder immer vorhanden, Unbekanntes ist `null`):
+
+```json
+{"art": "antwort", "zeit": "2026-10-31T18:32:05+01:00", "liste": "en-unit-1", "vokabel": "friend",
+ "frage": "Freund / Freundin", "getippt": "freind", "richtig": false, "modus": "liste",
+ "sterne": 0, "nachgetragen": false}
+```
+
+- `art`: `"antwort"`, `"runde"` oder `"einloesung"`
+- `modus`: `"liste"` oder `"super"`
+- `sterne`: Änderung des Kontostands (Antwort `+7`/`0`, Runde = Bonus, Einlösung negativ). Die Summe über die Zeit ergibt den Kontostand.
+- `nachgetragen: true`: aus dem alten Verlauf erzeugt (Zeitpunkt 31.10.2026 ab 10:00, ohne getippte Antwort, Modus und Sterne)
+
+**Wichtig:** Nach jeder Sicherung löscht die App die Einträge, die schon in der vorletzten Sicherung standen (bis zu 5.000 bleiben auf dem Gerät). Das ganze Protokoll ergibt sich deshalb erst aus **allen** Sicherungsdateien zusammen, **alte Dateien also behalten**. Die Dateien überlappen sich; Doppelte entfernt man beim Einlesen:
+
+```python
+import glob, json
+import pandas as pd
+
+rows = []
+for path in sorted(glob.glob("Vokabeltrainer/vokabeltrainer-*.json")):
+    daten = json.load(open(path, encoding="utf-8"))["daten"]
+    rows += daten.get("vokabeltrainer:v1:protokoll", [])
+
+df = pd.DataFrame(rows).drop_duplicates(["art", "zeit", "liste", "vokabel"])
+df["zeit"] = pd.to_datetime(df["zeit"])
+df = df.sort_values("zeit")
+df["kontostand"] = df["sterne"].fillna(0).cumsum()  # ab Beginn des Protokolls
+```
+
 ## Aufbau
 
 | Datei | Inhalt |
@@ -89,7 +121,7 @@ Das Datum der letzten Sicherung gehört zum Gerät und wird weder gesichert noch
 | `index.html` | Die Bildschirme: Listen, Abfrage, „Liste geschafft“, Ergebnis der Super-Liste |
 | `style.css` | Aussehen, für das iPhone optimiert |
 | `js/logic.js` | Reine Logik: Antworten prüfen, Karten bilden, Durchgänge, Zählen, Verlauf, Gewicht, Portionen, Sterne |
-| `js/storage.js` | Punkte, Runden, Verlauf, Sterne und angefangene Portion im `localStorage` speichern; alles exportieren und ersetzen für die Datensicherung |
+| `js/storage.js` | Punkte, Runden, Verlauf, Sterne, angefangene Portion und Antwortprotokoll im `localStorage` speichern; alles exportieren und ersetzen für die Datensicherung |
 | `js/app.js` | Verbindet die Logik mit der Seite (Klicks, Anzeige) |
 | `lists/` | Die Vokabellisten |
 | `tools/serve.py` | Lokaler Entwicklungsserver ohne Browser-Cache |

@@ -7,8 +7,13 @@ import { emptyLedger } from "./logic.js";
 const PREFIX = "vokabeltrainer:v1";
 const STARS_KEY = `${PREFIX}:sterne`;
 
-// Gehört zum Gerät, nicht zum Lernstand: wird weder gesichert noch beim Wiederherstellen ersetzt.
+const PROTOCOL_KEY = `${PREFIX}:protokoll`;
+const BACKFILL_KEY = `${PREFIX}:protokoll-nachgetragen`;
+
+// Gehören zum Gerät, nicht zum Lernstand: werden weder gesichert noch beim Wiederherstellen ersetzt.
 const LAST_BACKUP_KEY = `${PREFIX}:letzte-sicherung`;
+const PROTOCOL_SAVED_KEY = `${PREFIX}:protokoll-gesichert`; // so viele der ältesten Einträge stehen schon in der letzten Sicherung
+const DEVICE_KEYS = [LAST_BACKUP_KEY, PROTOCOL_SAVED_KEY];
 
 function read(key, fallback) {
   try {
@@ -99,13 +104,17 @@ export function clearPortion() {
 
 // ---------- Datensicherung ----------
 
-/** Alle Schlüssel des Lernstands (ohne das Datum der letzten Sicherung) */
+function isAppKey(key) {
+  return key.startsWith(`${PREFIX}:`) && !DEVICE_KEYS.includes(key);
+}
+
+/** Alle Schlüssel des Lernstands (ohne die Angaben, die zum Gerät gehören) */
 function appKeys() {
   const keys = [];
   try {
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
-      if (key?.startsWith(`${PREFIX}:`) && key !== LAST_BACKUP_KEY) keys.push(key);
+      if (key && isAppKey(key)) keys.push(key);
     }
   } catch (error) {
     console.warn("Speicher konnte nicht gelesen werden:", error);
@@ -126,7 +135,7 @@ export function replaceAllEntries(entries) {
     console.warn("Alter Stand konnte nicht gelöscht werden:", error);
   }
   for (const [key, value] of Object.entries(entries)) {
-    if (key.startsWith(`${PREFIX}:`) && key !== LAST_BACKUP_KEY) write(key, value);
+    if (isAppKey(key)) write(key, value);
   }
 }
 
@@ -142,4 +151,35 @@ export function loadLastBackup() {
 
 export function saveLastBackup(isoDate) {
   write(LAST_BACKUP_KEY, isoDate);
+}
+
+// ---------- Antwortprotokoll ----------
+
+/** Alle Protokolleinträge, älteste zuerst */
+export function loadProtocol() {
+  const entries = read(PROTOCOL_KEY, []);
+  return Array.isArray(entries) ? entries : [];
+}
+
+export function saveProtocol(entries) {
+  write(PROTOCOL_KEY, entries);
+}
+
+/** Wie viele der ältesten Einträge schon in der letzten Sicherung stehen (gehört zum Gerät) */
+export function loadProtocolSaved() {
+  const saved = read(PROTOCOL_SAVED_KEY, 0);
+  return Number.isInteger(saved) && saved > 0 ? saved : 0;
+}
+
+export function saveProtocolSaved(saved) {
+  write(PROTOCOL_SAVED_KEY, saved);
+}
+
+/** Wurde der alte Verlauf schon einmalig ins Protokoll nachgetragen? (Teil der Sicherung) */
+export function isBackfillDone() {
+  return read(BACKFILL_KEY, false) === true;
+}
+
+export function markBackfillDone() {
+  write(BACKFILL_KEY, true);
 }

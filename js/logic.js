@@ -327,3 +327,132 @@ export function lastBackupText(lastIsoDate, todayIsoDate) {
 export function isBackupDue(lastIsoDate, todayIsoDate) {
   return !lastIsoDate || daysBetween(lastIsoDate, todayIsoDate) >= BACKUP_REMINDER_DAYS;
 }
+
+// ---------- Antwortprotokoll (für die Auswertung, siehe PLAN.md) ----------
+
+/** Höchstens so viele Einträge bleiben auf dem Gerät, die ältesten fallen weg. */
+export const PROTOCOL_LIMIT = 5000;
+
+/** Ab so vielen Einträgen wird die Anzeige im Eltern-Bereich orange. */
+export const PROTOCOL_WARNING = 4000;
+
+const MODE_NAMES = { list: "liste", mix: "super" };
+
+// Jeder Eintrag hat immer alle Felder; Unbekanntes ist null.
+const EMPTY_ENTRY = {
+  art: null,
+  zeit: null,
+  liste: null,
+  vokabel: null,
+  frage: null,
+  getippt: null,
+  richtig: null,
+  modus: null,
+  sterne: null,
+  nachgetragen: false,
+};
+
+/** Lokale Zeit mit Sekunden und Zeitzone: "2026-10-31T18:32:05+01:00" */
+export function localIsoDateTimeWithZone(date) {
+  const seconds = String(date.getSeconds()).padStart(2, "0");
+  const offset = -date.getTimezoneOffset(); // Minuten östlich von UTC
+  const sign = offset >= 0 ? "+" : "-";
+  const hours = String(Math.floor(Math.abs(offset) / 60)).padStart(2, "0");
+  const minutes = String(Math.abs(offset) % 60).padStart(2, "0");
+  return `${localIsoDateTime(date)}:${seconds}${sign}${hours}:${minutes}`;
+}
+
+/** Eintrag für eine Antwort, `mode` ist "list" oder "mix" */
+export function answerEntry(card, typed, correct, mode, stars, date) {
+  return {
+    ...EMPTY_ENTRY,
+    art: "antwort",
+    zeit: localIsoDateTimeWithZone(date),
+    liste: card.listId,
+    vokabel: card.key,
+    frage: card.frage,
+    getippt: typed,
+    richtig: correct,
+    modus: MODE_NAMES[mode],
+    sterne: stars,
+  };
+}
+
+/** Eintrag für eine komplett geschaffte Liste (🏆), `bonus` = Bonus-Sterne */
+export function roundEntry(listId, bonus, date) {
+  return {
+    ...EMPTY_ENTRY,
+    art: "runde",
+    zeit: localIsoDateTimeWithZone(date),
+    liste: listId,
+    modus: "liste",
+    sterne: bonus,
+  };
+}
+
+/** Eintrag für eingelöste Sterne: `sterne` ist negativ */
+export function redemptionEntry(amount, date) {
+  return { ...EMPTY_ENTRY, art: "einloesung", zeit: localIsoDateTimeWithZone(date), sterne: -amount };
+}
+
+/**
+ * Hängt einen Eintrag an. `saved` = wie viele der ältesten Einträge schon in der letzten
+ * Sicherung stehen. Fallen über PROTOCOL_LIMIT alte Einträge weg, wird `saved` mitgezählt.
+ */
+export function appendToProtocol(entries, saved, entry, limit = PROTOCOL_LIMIT) {
+  const all = [...entries, entry];
+  const dropped = Math.max(0, all.length - limit);
+  return { entries: all.slice(dropped), saved: Math.max(0, saved - dropped) };
+}
+
+/**
+ * Nach einer erfolgreichen Sicherung mit `inBackup` Einträgen: Die ältesten `saved` Einträge
+ * standen schon in der vorletzten Sicherung und werden gelöscht. Der Rest der eben
+ * gesicherten Einträge zählt ab jetzt als „schon gesichert“ (Überlappung um eine Sicherung).
+ */
+export function pruneAfterBackup(entries, saved, inBackup) {
+  return { entries: entries.slice(saved), saved: Math.max(0, inBackup - saved) };
+}
+
+/** "2026-10-31T10:00:00+01:00", "…10:00:01…", …: Zeitpunkte der nachgetragenen Einträge */
+function backfillTime(index) {
+  const total = 10 * 3600 + index; // ab 10:00:00, sekundenweise
+  const pad = (n) => String(n).padStart(2, "0");
+  const time = `${pad(Math.floor(total / 3600))}:${pad(Math.floor(total / 60) % 60)}:${pad(total % 60)}`;
+  return `2026-10-31T${time}+01:00`;
+}
+
+/**
+ * Macht einmalig aus dem bisherigen Verlauf (R/F ohne Zeitpunkt) Protokolleinträge.
+ * Laut Till wurde vorher nur am 31.10.2026 geübt; die Frage kommt aus der heutigen Liste.
+ */
+export function backfillProtocol(lists, historyOf) {
+  const entries = [];
+  for (const list of lists) {
+    const questions = Object.fromEntries(buildCards(list).map((card) => [card.key, card.frage]));
+    for (const [key, answers] of Object.entries(historyOf(list.id))) {
+      for (const answer of answers) {
+        entries.push({
+          ...EMPTY_ENTRY,
+          art: "antwort",
+          zeit: backfillTime(entries.length),
+          liste: list.id,
+          vokabel: key,
+          frage: questions[key] ?? null,
+          richtig: answer === "R",
+          nachgetragen: true,
+        });
+      }
+    }
+  }
+  return entries;
+}
+
+/** "Im Protokoll: 1.234 Einträge" */
+export function protocolText(count) {
+  return `Im Protokoll: ${count.toLocaleString("de-DE")} ${count === 1 ? "Eintrag" : "Einträge"}`;
+}
+
+export function isProtocolNearlyFull(count) {
+  return count >= PROTOCOL_WARNING;
+}

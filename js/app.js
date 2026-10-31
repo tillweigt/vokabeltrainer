@@ -3,7 +3,10 @@ import {
   MASTERY_TARGET,
   PORTION_SIZE,
   addStars,
+  answerEntry,
   appendHistory,
+  appendToProtocol,
+  backfillProtocol,
   backupFileName,
   balance,
   buildBackup,
@@ -15,16 +18,21 @@ import {
   formatShortDate,
   isBackupDue,
   isCorrect,
+  isProtocolNearlyFull,
   lastBackupText,
   lastRedemptions,
   localIsoDate,
   parseBackup,
   parseRedemption,
+  protocolText,
+  pruneAfterBackup,
   recordAnswer,
   redeem,
+  redemptionEntry,
   registerTap,
   restoreQueue,
   roundBonus,
+  roundEntry,
   speechText,
   starsFor,
   startRound,
@@ -33,18 +41,24 @@ import {
 import {
   clearPortion,
   exportEntries,
+  isBackfillDone,
   ledgerFromEntries,
   loadHistory,
   loadLastBackup,
   loadPortion,
   loadProgress,
+  loadProtocol,
+  loadProtocolSaved,
   loadRounds,
   loadStars,
+  markBackfillDone,
   replaceAllEntries,
   saveHistory,
   saveLastBackup,
   savePortion,
   saveProgress,
+  saveProtocol,
+  saveProtocolSaved,
   saveRounds,
   saveStars,
 } from "./storage.js";
@@ -133,6 +147,21 @@ function starsForCard(card) {
 
 function earnStars(stars) {
   if (stars > 0) saveStars(addStars(loadStars(), stars));
+}
+
+/** Schreibt einen Eintrag ins Antwortprotokoll (für die Auswertung). */
+function logEntry(entry) {
+  const { entries, saved } = appendToProtocol(loadProtocol(), loadProtocolSaved(), entry);
+  saveProtocol(entries);
+  saveProtocolSaved(saved);
+}
+
+/** Einmalig: den alten Verlauf (R/F ohne Zeitpunkt) ins Protokoll nachtragen. */
+function backfillOnce() {
+  if (isBackfillDone()) return;
+  const entries = backfillProtocol(lists, loadHistory);
+  if (entries.length > 0) saveProtocol([...entries, ...loadProtocol()]);
+  markBackfillDone();
 }
 
 /** Liest einen englischen Text mit der eingebauten Sprachausgabe des Geräts vor. */
@@ -336,6 +365,7 @@ function checkAnswer() {
   const earned = correct ? session.cardStars : 0;
   earnStars(earned);
   rememberAnswer(card, correct);
+  logEntry(answerEntry(card, input.value, correct, session.mode, earned, new Date()));
   session.queue = session.queue.slice(1); // jede Karte nur einmal pro Durchgang
   if (session.mode === "list") {
     clearPortion(); // in einer normalen Liste geantwortet: angefangene Portion verwerfen
@@ -406,6 +436,7 @@ function finishRound() {
   saveRounds(session.list, session.rounds);
   session.bonus = roundBonus(session.cards.length);
   earnStars(session.bonus);
+  logEntry(roundEntry(session.list.id, session.bonus, new Date()));
   session.progress = {};
   saveProgress(session.list, session.progress);
 }
@@ -477,7 +508,9 @@ $("#redeem-form").addEventListener("submit", (event) => {
 });
 
 $("#redeem-yes").addEventListener("click", () => {
-  saveStars(redeem(loadStars(), pendingRedemption, localIsoDate(new Date())));
+  const now = new Date();
+  saveStars(redeem(loadStars(), pendingRedemption, localIsoDate(now)));
+  logEntry(redemptionEntry(pendingRedemption, now));
   redeemInput.value = "";
   renderStars();
 });
@@ -495,6 +528,10 @@ function renderParentArea() {
   const reminder = $("#last-backup");
   reminder.textContent = lastBackupText(last, today);
   reminder.classList.toggle("due", isBackupDue(last, today));
+  const count = loadProtocol().length;
+  const protocolInfo = $("#protocol-count");
+  protocolInfo.textContent = protocolText(count);
+  protocolInfo.classList.toggle("due", isProtocolNearlyFull(count));
   pendingBackup = null;
   $("#restore-confirm").hidden = true;
 }
@@ -534,6 +571,7 @@ $("#backup-save").addEventListener("click", async () => {
   $("#backup-message").hidden = true;
   const now = new Date();
   const backup = buildBackup(exportEntries(), now);
+  const inBackup = loadProtocol().length; // so viele Protokolleinträge stehen in dieser Datei
   const file = new File([JSON.stringify(backup, null, 2)], backupFileName(now), {
     type: "application/json",
   });
@@ -547,6 +585,10 @@ $("#backup-save").addEventListener("click", async () => {
     return;
   }
   saveLastBackup(localIsoDate(now));
+  // Was schon in der vorletzten Sicherung stand, kann jetzt vom Gerät (Überlappung um eine Sicherung).
+  const pruned = pruneAfterBackup(loadProtocol(), loadProtocolSaved(), inBackup);
+  saveProtocol(pruned.entries);
+  saveProtocolSaved(pruned.saved);
   renderParentArea();
   showBackupMessage(`Gesichert als ${file.name}`, true);
 });
@@ -576,6 +618,7 @@ $("#restore-yes").addEventListener("click", () => {
   if (!pendingBackup) return;
   const date = formatShortDate(pendingBackup.exportiert.slice(0, 10));
   replaceAllEntries(pendingBackup.daten);
+  saveProtocolSaved(0); // eingespieltes Protokoll gilt erst nach der nächsten Sicherung als gesichert
   renderStart(); // Startseite mit dem eingespielten Stand neu aufbauen
   renderParentArea();
   showBackupMessage(`Sicherung vom ${date} eingespielt.`, true);
@@ -590,6 +633,7 @@ async function init() {
   try {
     const ids = await loadJson("lists/index.json");
     lists = await Promise.all(ids.map((id) => loadJson(`lists/${id}.json`)));
+    backfillOnce();
     renderStart();
   } catch (error) {
     console.error(error);

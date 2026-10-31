@@ -629,7 +629,7 @@ def test_eltern_bereich_ist_versteckt(page: Page):
     page.click("#app-title")
     expect(area).to_be_visible()
     expect(page.locator("#last-backup")).to_have_text("Letzte Sicherung: noch nie")
-    expect(page.locator("#last-backup")).to_have_class("last-backup due")  # orange
+    expect(page.locator("#last-backup")).to_have_class("parent-info due")  # orange
 
     page.click("#parent-close")
     expect(area).to_be_hidden()
@@ -644,7 +644,7 @@ def test_sichern_ueber_teilen_menue(page: Page):
     page.click("#backup-save")
     expect(page.locator("#backup-message")).to_contain_text("Gesichert als vokabeltrainer-")
     expect(page.locator("#last-backup")).to_have_text("Letzte Sicherung: heute")
-    expect(page.locator("#last-backup")).to_have_class("last-backup")  # nicht mehr orange
+    expect(page.locator("#last-backup")).to_have_class("parent-info")  # nicht mehr orange
 
     page.click("#backup-save")  # zweite Sicherung: jetzt gibt es auch das Sicherungsdatum im Speicher
     page.wait_for_function("window.__shared.length === 2")
@@ -752,6 +752,131 @@ def test_sichern_und_auf_neuem_geraet_wiederherstellen(page: Page):
     )
     page.click("#restore-yes")
     expect(page.locator("#stars-balance")).to_have_text("⭐ 25 Sterne")
+
+
+# ---------- Antwortprotokoll ----------
+
+ZEIT = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$")
+
+
+def protocol(page: Page) -> list:
+    return storage_item(page, "vokabeltrainer:v1:protokoll") or []
+
+
+def test_protokoll_antworten_aus_der_liste(page: Page, mini_list):
+    open_list(page, "Testliste")
+    asked = question(page)
+    expected = solution_for(page, mini_list)
+    answer(page, " falsch ")
+    page.press("#answer", "Enter")
+    answer_correctly_and_continue(page, mini_list)
+
+    entries = protocol(page)
+    assert len(entries) == 2
+    wrong = entries[0]
+    assert ZEIT.match(wrong["zeit"])
+    assert {key: value for key, value in wrong.items() if key != "zeit"} == {
+        "art": "antwort",
+        "liste": "test-mini",
+        "vokabel": expected,
+        "frage": asked,
+        "getippt": " falsch ",  # genau so, wie getippt
+        "richtig": False,
+        "modus": "liste",
+        "sterne": 0,
+        "nachgetragen": False,
+    }
+    assert entries[1]["richtig"] is True
+    assert entries[1]["sterne"] == 8
+
+
+def test_protokoll_super_liste(page: Page, mini_list):
+    open_mix(page)
+    answer_correctly_and_continue(page, mini_list)
+    assert protocol(page)[0]["modus"] == "super"
+
+
+def test_protokoll_runde_und_einloesung(page: Page, mini_list):
+    open_list(page, "Testliste")
+    play_full_round(page, mini_list)
+    round_entry = protocol(page)[-1]
+    assert round_entry["art"] == "runde"
+    assert round_entry["liste"] == "test-mini"
+    assert round_entry["vokabel"] is None
+    assert round_entry["sterne"] == 4  # Bonus
+
+    page.click("#done-back")
+    page.fill("#redeem-amount", "20")
+    page.click("#redeem-submit")
+    page.click("#redeem-yes")
+    entries = protocol(page)
+    assert entries[-1]["art"] == "einloesung"
+    assert entries[-1]["sterne"] == -20
+    assert entries[-1]["liste"] is None
+    # Summe der Sterne-Spalte = Kontostand
+    assert sum(entry["sterne"] for entry in entries) == 68
+    expect(page.locator("#stars-balance")).to_have_text("⭐ 68 Sterne")
+
+
+def test_protokoll_sichern_und_loeschen_mit_ueberlappung(page: Page, mini_list):
+    stub_share(page)
+    count = page.locator("#protocol-count")
+
+    def answer_one():
+        page.locator(".list-button", has_text="Testliste").click()
+        answer(page, "falsch")
+        page.click("#back")
+
+    def backup(n):
+        page.click("#backup-save")
+        page.wait_for_function(f"window.__shared.length === {n}")
+        return json.loads(page.evaluate(f"window.__shared[{n - 1}].text"))["daten"]
+
+    page.goto("/")
+    answer_one()
+    answer_one()
+    open_parent_area(page)
+    expect(count).to_have_text("Im Protokoll: 2 Einträge")
+
+    # 1. Sicherung: 2 Einträge, gelöscht wird noch nichts
+    assert len(backup(1)["vokabeltrainer:v1:protokoll"]) == 2
+    expect(count).to_have_text("Im Protokoll: 2 Einträge")
+
+    # 2. Sicherung mit einem neuen Eintrag: die 2 alten standen schon in der 1. und fallen weg
+    answer_one()
+    assert len(backup(2)["vokabeltrainer:v1:protokoll"]) == 3
+    expect(count).to_have_text("Im Protokoll: 1 Eintrag")
+
+    # 3. Sicherung: enthält noch den einen, danach ist das Protokoll leer
+    assert len(backup(3)["vokabeltrainer:v1:protokoll"]) == 1
+    expect(count).to_have_text("Im Protokoll: 0 Einträge")
+
+
+def test_altdaten_werden_einmal_nachgetragen(page: Page, mini_list):
+    page.goto("/")
+    page.evaluate(
+        """() => {
+          localStorage.setItem("vokabeltrainer:v1:test-mini:verlauf", JSON.stringify({ boy: "RF", "I'm …": "R" }));
+          localStorage.removeItem("vokabeltrainer:v1:protokoll-nachgetragen");
+          localStorage.removeItem("vokabeltrainer:v1:protokoll");
+        }"""
+    )
+    page.reload()  # wie der erste Start nach dem Update
+    expect(page.locator(".list-button", has_text="Testliste")).to_be_visible()
+
+    entries = protocol(page)
+    assert [(e["zeit"], e["vokabel"], e["richtig"], e["frage"]) for e in entries] == [
+        ("2026-10-31T10:00:00+01:00", "boy", True, "Junge"),
+        ("2026-10-31T10:00:01+01:00", "boy", False, "Junge"),
+        ("2026-10-31T10:00:02+01:00", "I'm …", True, "Ich heiße … / Ich bin …"),
+    ]
+    for entry in entries:
+        assert entry["nachgetragen"] is True
+        assert entry["getippt"] is None and entry["modus"] is None and entry["sterne"] is None
+
+    page.reload()  # nur einmal
+    expect(page.locator(".list-button", has_text="Testliste")).to_be_visible()
+    assert len(protocol(page)) == 3
 
 
 # ---------- Sonstiges ----------

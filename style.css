@@ -205,7 +205,11 @@ button {
   margin: 0 0 8px;
 }
 
-.last-backup.due {
+.parent-info {
+  margin: 4px 0 10px;
+}
+
+.parent-info.due {
   color: var(--warning);
   font-weight: 600;
 }

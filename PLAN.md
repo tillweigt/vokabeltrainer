@@ -4,6 +4,41 @@ Dieses Dokument fasst ein Vorgespräch zusammen. Es dient als Grundlage, um die 
 
 ---
 
+## Stand: Antwortprotokoll (festgelegt am 31.10.2026)
+
+Zweck: Auswertung durch Till (z. B. mit Python am Mac). Die App selbst nutzt das Protokoll nicht.
+
+**Format:** eine Liste von Einträgen unter dem Speicherschlüssel `vokabeltrainer:v1:protokoll`, Teil jeder Sicherungsdatei. Alle Felder stehen immer da, Unbekanntes ist `null`.
+
+| Feld | Inhalt |
+|---|---|
+| `art` | `"antwort"` (jede Antwort, Liste und Super-Liste), `"runde"` (Liste komplett geschafft, 🏆), `"einloesung"` (Sterne eingelöst) |
+| `zeit` | sekundengenau mit Zeitzone, z. B. `"2026-10-31T18:32:05+01:00"` |
+| `liste` | z. B. `"en-unit-1"` (bei Einlösung `null`) |
+| `vokabel` | englisches Wort, z. B. `"friend"` (bei Runde und Einlösung `null`) |
+| `frage` | angezeigte Frage, z. B. `"Freund / Freundin"` (bei Runde und Einlösung `null`) |
+| `getippt` | eingetippte Antwort, immer (bei Runde und Einlösung `null`) |
+| `richtig` | `true` / `false` (bei Runde und Einlösung `null`) |
+| `modus` | `"liste"` / `"super"` (bei Einlösung `null`) |
+| `sterne` | Änderung des Kontostands: Antwort `+7` bzw. `0`, Runde `+29` (Bonus), Einlösung `-20`. Summe über die Zeit = Kontostand. |
+| `nachgetragen` | `true` nur bei den einmalig nachgetragenen Altdaten, sonst `false` |
+
+**Erweiterung:** Neue Felder dürfen später dazukommen (ältere Einträge haben sie dann nicht). Bestehende Felder werden nie umbenannt oder umgedeutet.
+
+**Aufbewahrung auf dem Gerät**
+- Nach jeder erfolgreichen Sicherung werden die Einträge gelöscht, die schon in der **vorletzten** Sicherung standen. Die Dateien überlappen sich also; Doppelte werden bei der Auswertung über `art`, `zeit`, `liste`, `vokabel` entfernt. **Alte Sicherungsdateien behalten.** Die Grenze dafür gehört zum Gerät und ist nicht Teil der Sicherung.
+- Obergrenze **5.000 Einträge**, die ältesten fallen weg. Im Eltern-Bereich steht „Im Protokoll: N Einträge“, ab 4.000 orange.
+
+**Nachtragen der Altdaten** (einmalig beim ersten Start nach dem Update)
+- Aus jedem `R`/`F` im bisherigen Verlauf wird ein Eintrag `art: "antwort"` mit `richtig` aus R/F und `frage` aus der heutigen Liste. `getippt`, `modus` und `sterne` sind `null`, `nachgetragen` ist `true`.
+- Zeitpunkt fest **31.10.2026 ab 10:00:00 (+01:00)**, sekundenweise hochgezählt, die Reihenfolge pro Vokabel bleibt erhalten. (Laut Till wurde vorher nur an diesem Tag geübt.)
+
+**Nicht gespeichert:** Antwortzeit, Antippen von 🔊, Geräte-Kennung.
+
+**Tests:** Unit-Tests für das Erzeugen der Einträge, das Nachtragen, die Obergrenze und das Löschen mit Überlappung; E2E-Tests für Einträge aus Liste, Super-Liste, Runde und Einlösung sowie für das Protokoll in der Sicherungsdatei.
+
+---
+
 ## Stand: Datensicherung (festgelegt am 31.10.2026)
 
 Stufe 1: Sicherung von Hand. Stufe 2 (später): automatisches Hochladen nach Google Drive über ein Apps-Script, im selben Dateiformat.

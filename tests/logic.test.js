@@ -6,7 +6,16 @@ import {
   MASTERY_TARGET,
   PORTION_SIZE,
   addStars,
+  answerEntry,
   appendHistory,
+  appendToProtocol,
+  backfillProtocol,
+  isProtocolNearlyFull,
+  localIsoDateTimeWithZone,
+  protocolText,
+  pruneAfterBackup,
+  redemptionEntry,
+  roundEntry,
   backupFileName,
   buildBackup,
   daysBetween,
@@ -393,5 +402,129 @@ describe("Erinnerung an die Sicherung", () => {
     assert.equal(isBackupDue(null, "2026-10-31"), true);
     assert.equal(isBackupDue("2026-10-25", "2026-10-31"), false);
     assert.equal(isBackupDue("2026-10-24", "2026-10-31"), true);
+  });
+});
+
+describe("Antwortprotokoll: Einträge", () => {
+  const when = new Date(2026, 9, 31, 18, 32, 5);
+  const card = { listId: "en-unit-1", key: "friend", frage: "Freund / Freundin", antworten: ["friend"] };
+  const fields = ["art", "zeit", "liste", "vokabel", "frage", "getippt", "richtig", "modus", "sterne", "nachgetragen"];
+
+  test("Zeitpunkt mit Sekunden und Zeitzone", () => {
+    const text = localIsoDateTimeWithZone(when);
+    assert.match(text, /^2026-10-31T18:32:05[+-]\d{2}:\d{2}$/);
+    assert.equal(Date.parse(text), when.getTime()); // derselbe Zeitpunkt, egal in welcher Zeitzone getestet wird
+  });
+
+  test("Antwort", () => {
+    assert.deepEqual(answerEntry(card, "freind", false, "list", 0, when), {
+      art: "antwort",
+      zeit: localIsoDateTimeWithZone(when),
+      liste: "en-unit-1",
+      vokabel: "friend",
+      frage: "Freund / Freundin",
+      getippt: "freind",
+      richtig: false,
+      modus: "liste",
+      sterne: 0,
+      nachgetragen: false,
+    });
+    assert.equal(answerEntry(card, "friend", true, "mix", 7, when).modus, "super");
+  });
+
+  test("Runde und Einlösung: Sterne als Änderung des Kontostands", () => {
+    const round = roundEntry("en-unit-1", 29, when);
+    assert.equal(round.art, "runde");
+    assert.equal(round.sterne, 29);
+    assert.equal(round.vokabel, null);
+    const redemption = redemptionEntry(20, when);
+    assert.equal(redemption.art, "einloesung");
+    assert.equal(redemption.sterne, -20);
+    assert.equal(redemption.liste, null);
+  });
+
+  test("jeder Eintrag hat immer alle Felder", () => {
+    for (const entry of [answerEntry(card, "x", false, "list", 0, when), roundEntry("a", 1, when), redemptionEntry(1, when)]) {
+      assert.deepEqual(Object.keys(entry).sort(), [...fields].sort());
+    }
+  });
+});
+
+describe("Antwortprotokoll: Obergrenze und Löschen nach Sicherung", () => {
+  const entry = (n) => ({ art: "antwort", nr: n });
+
+  test("über der Obergrenze fallen die ältesten weg, 'gesichert' zählt mit", () => {
+    const result = appendToProtocol([entry(1), entry(2), entry(3)], 2, entry(4), 3);
+    assert.deepEqual(result.entries.map((e) => e.nr), [2, 3, 4]);
+    assert.equal(result.saved, 1);
+  });
+
+  test("drei Sicherungen hintereinander: jede Datei überlappt mit der vorherigen", () => {
+    // Sicherung 1 mit Eintrag 1: noch nichts gesichert, also nichts löschen
+    let state = pruneAfterBackup([entry(1)], 0, 1);
+    assert.deepEqual(state.entries.map((e) => e.nr), [1]);
+    // Eintrag 2 kommt dazu, Sicherung 2 enthält 1 und 2: jetzt fällt 1 weg
+    state = pruneAfterBackup([...state.entries, entry(2)], state.saved, 2);
+    assert.deepEqual(state.entries.map((e) => e.nr), [2]);
+    // Sicherung 3 enthält nur noch 2: danach ist das Protokoll leer
+    state = pruneAfterBackup(state.entries, state.saved, 1);
+    assert.deepEqual(state.entries, []);
+    assert.equal(state.saved, 0);
+  });
+
+  test("Anzeige im Eltern-Bereich", () => {
+    assert.equal(protocolText(0), "Im Protokoll: 0 Einträge");
+    assert.equal(protocolText(1), "Im Protokoll: 1 Eintrag");
+    assert.equal(protocolText(1234), "Im Protokoll: 1.234 Einträge");
+    assert.equal(isProtocolNearlyFull(3999), false);
+    assert.equal(isProtocolNearlyFull(4000), true);
+  });
+});
+
+describe("Antwortprotokoll: Altdaten nachtragen", () => {
+  const list = {
+    id: "en-unit-1",
+    items: [
+      { en: "boy", de: ["Junge"] },
+      { en: "friend", de: ["Freund", "Freundin"] },
+    ],
+  };
+  const histories = { "en-unit-1": { boy: "RF", friend: "R", alt: "F" } };
+  const entries = backfillProtocol([list], (id) => histories[id] ?? {});
+
+  test("ein Eintrag pro R/F, Reihenfolge pro Vokabel bleibt", () => {
+    assert.deepEqual(
+      entries.map((e) => [e.vokabel, e.richtig]),
+      [["boy", true], ["boy", false], ["friend", true], ["alt", false]],
+    );
+  });
+
+  test("fester Zeitpunkt ab 31.10.2026 10:00:00, sekundenweise", () => {
+    assert.deepEqual(
+      entries.map((e) => e.zeit),
+      [
+        "2026-10-31T10:00:00+01:00",
+        "2026-10-31T10:00:01+01:00",
+        "2026-10-31T10:00:02+01:00",
+        "2026-10-31T10:00:03+01:00",
+      ],
+    );
+  });
+
+  test("Frage aus der heutigen Liste, Unbekanntes leer, als nachgetragen markiert", () => {
+    assert.equal(entries[2].frage, "Freund / Freundin");
+    assert.equal(entries[3].frage, null); // Vokabel gibt es in der Liste nicht mehr
+    for (const entry of entries) {
+      assert.equal(entry.art, "antwort");
+      assert.equal(entry.getippt, null);
+      assert.equal(entry.modus, null);
+      assert.equal(entry.sterne, null);
+      assert.equal(entry.nachgetragen, true);
+    }
+  });
+
+  test("Minuten laufen über", () => {
+    const many = backfillProtocol([list], () => ({ boy: "R".repeat(61) }));
+    assert.equal(many[60].zeit, "2026-10-31T10:01:00+01:00");
   });
 });
