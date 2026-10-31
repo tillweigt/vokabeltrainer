@@ -11,6 +11,7 @@
   --star: #9a5b00;
   --star-background: #fff6dc;
   --star-border: #f2c94c;
+  --warning: #b45309;
   --good: #1a7f37;
   --good-background: #e6f4ea;
   --bad: #c62828;
@@ -184,6 +185,68 @@ button {
   color: var(--muted);
 }
 
+/* ---------- Eltern-Bereich ---------- */
+
+#app-title {
+  -webkit-user-select: none; /* schnelles Tippen soll keinen Text markieren … */
+  user-select: none;
+  touch-action: manipulation; /* … und nicht zoomen */
+}
+
+.parent-area {
+  margin-top: 32px;
+  padding: 14px 16px;
+  border: 2px dashed var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.parent-area h3 {
+  margin: 0 0 8px;
+}
+
+.last-backup.due {
+  color: var(--warning);
+  font-weight: 600;
+}
+
+.parent-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.restore-confirm {
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.restore-question {
+  font-weight: 700;
+}
+
+#backup-message {
+  margin: 12px 0 0;
+}
+
+#backup-message.success {
+  color: var(--good);
+}
+
+#parent-close {
+  margin-top: 14px;
+}
+
+/* unsichtbar, aber für das label (und Tests) bedienbar */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+}
+
 /* ---------- Abfrage ---------- */
 
 .quiz-header {
@@ -273,7 +336,12 @@ button {
 #mix-back,
 #redeem-submit,
 #redeem-yes,
-#redeem-no {
+#redeem-no,
+#backup-save,
+.restore-button,
+#restore-yes,
+#restore-no,
+#parent-close {
   min-height: 52px;
   padding: 0 18px;
   border: 2px solid var(--accent);
@@ -285,14 +353,29 @@ button {
 
 #redeem-submit,
 #redeem-yes,
-#redeem-no {
+#redeem-no,
+#backup-save,
+.restore-button,
+#restore-yes,
+#restore-no,
+#parent-close {
   min-height: 48px;
 }
 
 #mix-back,
-#redeem-no {
+#redeem-no,
+.restore-button,
+#restore-no,
+#parent-close {
   background: var(--surface);
   color: var(--accent);
+}
+
+/* Das label sieht aus wie ein Knopf */
+.restore-button {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
 }
 
 #feedback {

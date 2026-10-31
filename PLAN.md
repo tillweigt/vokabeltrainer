@@ -4,6 +4,30 @@ Dieses Dokument fasst ein Vorgespräch zusammen. Es dient als Grundlage, um die 
 
 ---
 
+## Stand: Datensicherung (festgelegt am 31.10.2026)
+
+Stufe 1: Sicherung von Hand. Stufe 2 (später): automatisches Hochladen nach Google Drive über ein Apps-Script, im selben Dateiformat.
+
+**Versteckter Eltern-Bereich**
+- Zugang: **5× schnell** (innerhalb von 3 Sekunden) auf die Überschrift „Vokabeltrainer“ tippen. Ohne PIN.
+- Der Bereich klappt unten auf der Startseite auf. Er hat einen Knopf „Schließen“ und ist beim nächsten Öffnen der App wieder zu.
+- Inhalt: „Letzte Sicherung: vor X Tagen“ (bzw. „noch nie“, ab 7 Tagen orange), „💾 Daten sichern“, „Daten wiederherstellen“.
+
+**Sichern**
+- Eine Datei `vokabeltrainer-JJJJ-MM-TT-HHMM.json` (mit Uhrzeit, damit mehrere Sicherungen am Tag eindeutig sind und die neueste beim Sortieren unten steht) mit allen Daten der App aus dem Speicher (Punkte, Runden, Verlauf, Sterne, Einlösungen, angefangene Portion) plus `app`, `version` und `exportiert`. Kein Name in Datei oder Code.
+- Über das iPhone-Teilen-Menü → „In Dateien sichern“ → ein geteilter Ordner in Tills iCloud Drive (Familienfreigabe, Schreibrecht). Ohne Teilen-Funktion (z. B. am Rechner) wird die Datei heruntergeladen.
+- Das Datum der letzten Sicherung wird gespeichert, sobald das Teilen-Menü erfolgreich abgeschlossen wurde (Abbrechen zählt nicht). Es gehört zum Gerät und ist nicht Teil der Sicherung.
+
+**Wiederherstellen**
+- Über die Dateiauswahl des iPhones eine Sicherung auswählen. Automatisch „die neueste Datei“ geht nicht, weil eine Website nicht selbst in Ordner schauen darf.
+- Prüfung: Stammt die Datei nicht vom Vokabeltrainer oder hat sie eine unbekannte Version, erscheint „Das ist keine Sicherung vom Vokabeltrainer.“, und es passiert nichts.
+- Rückfrage mit Vergleich: „Sicherung vom 24.10. einspielen? In der Sicherung: 128 ⭐ · jetzt auf dem Gerät: 213 ⭐. Der Stand auf diesem Gerät wird ersetzt.“ mit „Ja, einspielen“ und „Abbrechen“.
+- Bei „Ja“ wird der **gesamte** Stand der App ersetzt (nicht zusammengeführt), danach lädt die Startseite neu.
+
+**Tests:** Unit-Tests für das Zusammenstellen und Prüfen der Datei, E2E-Tests für den Geheimzugang, Sichern (mit Attrappe für das Teilen-Menü) und Wiederherstellen (mit Testdatei, falscher Datei und Abbrechen).
+
+---
+
 ## Stand: Vorlesen (festgelegt am 30.10.2026)
 
 - Knopf „🔊 Anhören“ in der Rückmeldung, **erst nach dem Prüfen** (vorher würde er die Lösung verraten), bei richtigen und falschen Antworten.

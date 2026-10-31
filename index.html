@@ -22,7 +22,8 @@
   <body>
     <main>
       <section id="start">
-        <h1>Vokabeltrainer</h1>
+        <!-- 5× schnell antippen öffnet den versteckten Eltern-Bereich -->
+        <h1 id="app-title">Vokabeltrainer</h1>
         <div class="stars-panel">
           <p id="stars-balance" class="stars-balance"></p>
           <!-- novalidate: eigene Prüfung in parseRedemption statt der Browser-Sprechblase -->
@@ -48,6 +49,28 @@
         </div>
         <div id="lists"></div>
         <p id="load-error" class="error" hidden></p>
+
+        <div id="parent-area" class="parent-area" hidden>
+          <h3>Eltern-Bereich</h3>
+          <p id="last-backup" class="last-backup"></p>
+          <div class="parent-buttons">
+            <button id="backup-save" type="button">💾 Daten sichern</button>
+            <!-- Ein label öffnet die Dateiauswahl am iPhone zuverlässiger als ein unsichtbares Feld per Skript -->
+            <label for="backup-file" class="restore-button">Daten wiederherstellen</label>
+            <input id="backup-file" class="visually-hidden" type="file" accept=".json,application/json">
+          </div>
+          <div id="restore-confirm" class="restore-confirm" hidden>
+            <p id="restore-question" class="restore-question"></p>
+            <p id="restore-compare"></p>
+            <p>Der Stand auf diesem Gerät wird ersetzt.</p>
+            <div class="parent-buttons">
+              <button id="restore-yes" type="button">Ja, einspielen</button>
+              <button id="restore-no" type="button" class="secondary">Abbrechen</button>
+            </div>
+          </div>
+          <p id="backup-message" hidden></p>
+          <button id="parent-close" type="button" class="secondary">Schließen</button>
+        </div>
       </section>
 
       <section id="quiz" hidden>

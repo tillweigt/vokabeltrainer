@@ -4,19 +4,25 @@ import {
   PORTION_SIZE,
   addStars,
   appendHistory,
+  backupFileName,
   balance,
+  buildBackup,
   buildCards,
   cardRef,
   countByHits,
   countMastered,
   drawPortion,
   formatShortDate,
+  isBackupDue,
   isCorrect,
+  lastBackupText,
   lastRedemptions,
   localIsoDate,
+  parseBackup,
   parseRedemption,
   recordAnswer,
   redeem,
+  registerTap,
   restoreQueue,
   roundBonus,
   speechText,
@@ -26,12 +32,17 @@ import {
 } from "./logic.js";
 import {
   clearPortion,
+  exportEntries,
+  ledgerFromEntries,
   loadHistory,
+  loadLastBackup,
   loadPortion,
   loadProgress,
   loadRounds,
   loadStars,
+  replaceAllEntries,
   saveHistory,
+  saveLastBackup,
   savePortion,
   saveProgress,
   saveRounds,
@@ -63,6 +74,8 @@ let lists = []; // alle Vokabellisten aus lists/
 let session = null;
 
 let pendingRedemption = null; // Anzahl Sterne, die auf „Ja“ zum Einlösen wartet
+let pendingBackup = null; // eingelesene Sicherung, die auf „Ja, einspielen“ wartet
+let titleTaps = []; // Zeitpunkte der letzten Tipps auf die Überschrift (Geheimzugang)
 
 // ---------- Hilfsfunktionen ----------
 
@@ -470,6 +483,105 @@ $("#redeem-yes").addEventListener("click", () => {
 });
 
 $("#redeem-no").addEventListener("click", renderStars);
+
+// ---------- Eltern-Bereich: Sichern und Wiederherstellen ----------
+
+const parentArea = $("#parent-area");
+const backupFile = $("#backup-file");
+
+function renderParentArea() {
+  const last = loadLastBackup();
+  const today = localIsoDate(new Date());
+  const reminder = $("#last-backup");
+  reminder.textContent = lastBackupText(last, today);
+  reminder.classList.toggle("due", isBackupDue(last, today));
+  pendingBackup = null;
+  $("#restore-confirm").hidden = true;
+}
+
+function showBackupMessage(text, ok) {
+  const message = $("#backup-message");
+  message.textContent = text;
+  message.className = ok ? "success" : "error";
+  message.hidden = false;
+}
+
+$("#app-title").addEventListener("click", () => {
+  const result = registerTap(titleTaps, Date.now());
+  titleTaps = result.taps;
+  if (!result.unlocked) return;
+  renderParentArea();
+  $("#backup-message").hidden = true;
+  parentArea.hidden = false;
+  parentArea.scrollIntoView({ behavior: "smooth" });
+});
+
+$("#parent-close").addEventListener("click", () => {
+  parentArea.hidden = true;
+});
+
+/** Am Rechner gibt es kein Teilen-Menü: dann die Datei einfach herunterladen. */
+function downloadFile(file) {
+  const url = URL.createObjectURL(file);
+  const link = element("a");
+  link.href = url;
+  link.download = file.name;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000); // erst freigeben, wenn der Download läuft
+}
+
+$("#backup-save").addEventListener("click", async () => {
+  $("#backup-message").hidden = true;
+  const now = new Date();
+  const backup = buildBackup(exportEntries(), now);
+  const file = new File([JSON.stringify(backup, null, 2)], backupFileName(now), {
+    type: "application/json",
+  });
+  try {
+    // Teilen-Menü (iPhone): „In Dateien sichern“ → geteilter iCloud-Ordner
+    if (navigator.canShare?.({ files: [file] })) await navigator.share({ files: [file] });
+    else downloadFile(file);
+  } catch (error) {
+    if (error.name === "AbortError") return; // abgebrochen: zählt nicht als Sicherung
+    showBackupMessage(`Sichern hat nicht geklappt: ${error.message}`, false);
+    return;
+  }
+  saveLastBackup(localIsoDate(now));
+  renderParentArea();
+  showBackupMessage(`Gesichert als ${file.name}`, true);
+});
+
+backupFile.addEventListener("change", async () => {
+  const file = backupFile.files[0];
+  backupFile.value = ""; // damit dieselbe Datei später noch einmal gewählt werden kann
+  if (!file) return;
+  $("#backup-message").hidden = true;
+  const result = parseBackup(await file.text());
+  if (result.error) {
+    renderParentArea();
+    showBackupMessage(result.error, false);
+    return;
+  }
+  pendingBackup = result.backup;
+  const inBackup = balance(ledgerFromEntries(result.backup.daten));
+  const onDevice = balance(loadStars());
+  $("#restore-question").textContent =
+    `Sicherung vom ${formatShortDate(result.backup.exportiert.slice(0, 10))} einspielen?`;
+  $("#restore-compare").textContent =
+    `In der Sicherung: ${inBackup} ⭐ · jetzt auf dem Gerät: ${onDevice} ⭐`;
+  $("#restore-confirm").hidden = false;
+});
+
+$("#restore-yes").addEventListener("click", () => {
+  if (!pendingBackup) return;
+  const date = formatShortDate(pendingBackup.exportiert.slice(0, 10));
+  replaceAllEntries(pendingBackup.daten);
+  renderStart(); // Startseite mit dem eingespielten Stand neu aufbauen
+  renderParentArea();
+  showBackupMessage(`Sicherung vom ${date} eingespielt.`, true);
+});
+
+$("#restore-no").addEventListener("click", renderParentArea);
 
 // ---------- Start ----------
 

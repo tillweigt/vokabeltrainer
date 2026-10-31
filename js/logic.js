@@ -239,3 +239,91 @@ export function formatShortDate(isoDate) {
   const [, month, day] = isoDate.split("-");
   return `${Number(day)}.${Number(month)}.`;
 }
+
+/** Lokales Datum mit Uhrzeit als "2026-10-31T18:30" */
+export function localIsoDateTime(date) {
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  return `${localIsoDate(date)}T${hours}:${minutes}`;
+}
+
+/** Ganze Tage von einem Datum zum anderen, z. B. "2026-10-24" → "2026-10-31" = 7 */
+export function daysBetween(fromIsoDate, toIsoDate) {
+  const toUtc = (isoDate) => {
+    const [year, month, day] = isoDate.split("-").map(Number);
+    return Date.UTC(year, month - 1, day);
+  };
+  return Math.round((toUtc(toIsoDate) - toUtc(fromIsoDate)) / 86400000);
+}
+
+// ---------- Eltern-Bereich und Datensicherung ----------
+
+export const BACKUP_APP = "vokabeltrainer";
+export const BACKUP_VERSION = 1;
+
+/** Ab so vielen Tagen ohne Sicherung wird die Erinnerung orange. */
+export const BACKUP_REMINDER_DAYS = 7;
+
+const NOT_A_BACKUP = "Das ist keine Sicherung vom Vokabeltrainer.";
+
+/**
+ * Geheimzugang: merkt sich die Zeitpunkte der letzten Tipps.
+ * Freigeschaltet, wenn `count` Tipps innerhalb von `windowMs` Millisekunden kamen.
+ */
+export function registerTap(taps, now, count = 5, windowMs = 3000) {
+  const recent = [...taps.filter((time) => now - time < windowMs), now];
+  return recent.length >= count ? { taps: [], unlocked: true } : { taps: recent, unlocked: false };
+}
+
+/** "vokabeltrainer-2026-10-31-1830.json" */
+export function backupFileName(date) {
+  const [day, time] = localIsoDateTime(date).split("T");
+  return `${BACKUP_APP}-${day}-${time.replace(":", "")}.json`;
+}
+
+/** Inhalt der Sicherungsdatei: alle Einträge der App plus Kennung, Version und Zeitpunkt. */
+export function buildBackup(entries, date) {
+  return {
+    app: BACKUP_APP,
+    version: BACKUP_VERSION,
+    exportiert: localIsoDateTime(date),
+    daten: entries,
+  };
+}
+
+/**
+ * Liest eine Sicherungsdatei und prüft, ob sie vom Vokabeltrainer stammt.
+ * Ergebnis: { backup } wenn alles passt, sonst { error } mit einem Hinweis zum Anzeigen.
+ */
+export function parseBackup(text) {
+  let backup;
+  try {
+    backup = JSON.parse(text);
+  } catch {
+    return { error: NOT_A_BACKUP };
+  }
+  const data = backup?.daten;
+  const valid =
+    backup?.app === BACKUP_APP &&
+    backup.version === BACKUP_VERSION &&
+    /^\d{4}-\d{2}-\d{2}/.test(backup.exportiert ?? "") &&
+    data !== null &&
+    typeof data === "object" &&
+    !Array.isArray(data) &&
+    Object.keys(data).every((key) => key.startsWith(`${BACKUP_APP}:`));
+  return valid ? { backup } : { error: NOT_A_BACKUP };
+}
+
+/** "Letzte Sicherung: vor 9 Tagen" (bzw. heute, gestern, noch nie) */
+export function lastBackupText(lastIsoDate, todayIsoDate) {
+  if (!lastIsoDate) return "Letzte Sicherung: noch nie";
+  const days = daysBetween(lastIsoDate, todayIsoDate);
+  if (days <= 0) return "Letzte Sicherung: heute";
+  if (days === 1) return "Letzte Sicherung: gestern";
+  return `Letzte Sicherung: vor ${days} Tagen`;
+}
+
+/** Ist eine Sicherung fällig (noch nie oder vor mindestens BACKUP_REMINDER_DAYS Tagen)? */
+export function isBackupDue(lastIsoDate, todayIsoDate) {
+  return !lastIsoDate || daysBetween(lastIsoDate, todayIsoDate) >= BACKUP_REMINDER_DAYS;
+}

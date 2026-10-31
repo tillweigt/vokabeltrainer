@@ -6,6 +6,7 @@ Eine kleine Website zum Vokabellernen auf dem iPhone. Die deutsche Vokabel wird 
 - **🔀 Alle Englisch-Vokabeln:** Portionen zu 5 Karten aus allen Listen. Vokabeln, die zuletzt oft falsch waren, kommen öfter dran. Grundlage ist der Verlauf jeder Vokabel (`R`/`F`), Gewicht `(F + 1) / (n + 2)` über die letzten 5 Antworten. Eine angefangene Portion geht nach einer Pause weiter; wird zwischendurch in einer normalen Liste geantwortet, wird neu gezogen.
 - **⭐ Sterne:** Jede richtige Antwort bringt `⌈8 · 2^(−k/3)⌉` Sterne (k = wie oft die Vokabel schon richtig war, also 8, 7, 6, 4, 4, 3, 2, …, mindestens 1). Fehler bringen nichts und kosten nichts. Für eine komplett geschaffte Liste (🏆) gibt es 1 Stern pro Vokabel extra. Auf der Startseite stehen der Kontostand, ein Feld zum Einlösen und die letzten 3 Einlösungen. Die Belohnung gibt es im echten Leben.
 - **🔊 Anhören:** Nach dem Prüfen liest die eingebaute Sprachausgabe des iPhones die Lösung auf britischem Englisch vor, nur auf Knopfdruck. Ist nichts zu hören: Lautstärke und Stummschalter prüfen. Bessere Stimmen gibt es kostenlos unter *Einstellungen → Bedienungshilfen → Gesprochene Inhalte → Stimmen → Englisch*.
+- **Eltern-Bereich (versteckt):** 5× schnell auf die Überschrift „Vokabeltrainer“ tippen. Dort lassen sich die Daten sichern und wiederherstellen, siehe unten.
 
 Es gibt kein Framework, keinen Build-Schritt und keinen Server-Code: nur HTML, CSS, JavaScript und JSON-Dateien.
 
@@ -55,6 +56,32 @@ Mit `make e2e ARGS="--headed --slowmo 300"` kann man zusehen.
 
 Der Fortschritt liegt im Browser des jeweiligen Geräts. Um eine Liste neu zu beginnen, in der Listendatei `"durchlauf"` um 1 erhöhen und pushen. Damit gehen auch die Punkte und der Runden-Zähler 🏆 auf 0. Der Verlauf (`R`/`F`) bleibt dabei erhalten, er ist die Grundlage der Super-Liste und der Sterne. Auch der Sterne-Kontostand bleibt unberührt. Wird eine einzelne Vokabel (`en`) geändert, beginnt nur diese wieder bei null, auch mit neuem Verlauf.
 
+## Daten sichern und wiederherstellen
+
+Der ganze Lernstand (Punkte, Runden, Verlauf, Sterne, Einlösungen) liegt nur auf dem Gerät. Die Sicherung ist eine JSON-Datei `vokabeltrainer-JJJJ-MM-TT-HHMM.json`.
+
+**Einmalig: geteilten iCloud-Ordner einrichten**
+
+1. Auf deinem iPhone in der **Dateien**-App unter *iCloud Drive* einen Ordner anlegen, z. B. „Vokabeltrainer“. Am Mac geht das im Finder unter *iCloud Drive*.
+2. Den Ordner lange drücken → **Teilen** → bei den Optionen *Nur eingeladene Personen* und **Änderungen erlauben** wählen → die Apple-ID deiner Tochter aus der Familie einladen (z. B. per Nachricht).
+3. Auf ihrem iPhone die Einladung annehmen. Der Ordner erscheint dann in der Dateien-App unter *iCloud Drive* bzw. *Geteilt*.
+
+**Sichern** (auf ihrem iPhone, und zwar in der **App vom Home-Bildschirm**, denn nur dort liegen ihre Daten)
+
+1. 5× schnell auf „Vokabeltrainer“ tippen → Eltern-Bereich.
+2. **💾 Daten sichern** → im Teilen-Menü **In Dateien sichern** → den geteilten Ordner wählen → *Sichern*.
+3. Die Datei liegt jetzt in deinem iCloud Drive. „Letzte Sicherung“ zeigt „heute“. Nach 7 Tagen ohne Sicherung wird die Zeile orange.
+
+Am Rechner gibt es kein Teilen-Menü. Dort wird die Datei einfach heruntergeladen.
+
+**Wiederherstellen** (z. B. auf einem neuen Handy)
+
+1. Eltern-Bereich öffnen → **Daten wiederherstellen** → die Datei im geteilten Ordner auswählen. Nach Name sortiert steht die neueste unten.
+2. Die Rückfrage zeigt das Datum der Sicherung und die Sterne in der Sicherung und auf dem Gerät. Steht auf dem Gerät mehr, ist die Sicherung älter als der aktuelle Stand.
+3. **Ja, einspielen** ersetzt den gesamten Stand auf dem Gerät.
+
+Das Datum der letzten Sicherung gehört zum Gerät und wird weder gesichert noch ersetzt.
+
 ## Aufbau
 
 | Datei | Inhalt |
@@ -62,7 +89,7 @@ Der Fortschritt liegt im Browser des jeweiligen Geräts. Um eine Liste neu zu be
 | `index.html` | Die Bildschirme: Listen, Abfrage, „Liste geschafft“, Ergebnis der Super-Liste |
 | `style.css` | Aussehen, für das iPhone optimiert |
 | `js/logic.js` | Reine Logik: Antworten prüfen, Karten bilden, Durchgänge, Zählen, Verlauf, Gewicht, Portionen, Sterne |
-| `js/storage.js` | Punkte, Runden, Verlauf, Sterne und angefangene Portion im `localStorage` speichern |
+| `js/storage.js` | Punkte, Runden, Verlauf, Sterne und angefangene Portion im `localStorage` speichern; alles exportieren und ersetzen für die Datensicherung |
 | `js/app.js` | Verbindet die Logik mit der Seite (Klicks, Anzeige) |
 | `lists/` | Die Vokabellisten |
 | `tools/serve.py` | Lokaler Entwicklungsserver ohne Browser-Cache |

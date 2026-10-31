@@ -1,6 +1,7 @@
 """E2E-Tests: spielen die App im (simulierten) iPhone-Browser durch."""
 
 import json
+import re
 from datetime import date
 
 import pytest
@@ -569,6 +570,188 @@ def test_vorlesen_liest_die_eigene_loesung(page: Page, mini_list, spoken):
     expect(page.locator("#feedback")).to_contain_text("Richtig")
     page.click(".speak-button")
     assert spoken()[-1] == {"text": "I'm", "lang": "en-GB"}
+
+
+# ---------- Eltern-Bereich: Sichern und Wiederherstellen ----------
+
+BACKUP_NAME = re.compile(r"^vokabeltrainer-\d{4}-\d{2}-\d{2}-\d{4}\.json$")
+
+
+def stub_share(page: Page, mode: str = "share") -> None:
+    """Attrappe für das Teilen-Menü: "share" schreibt mit, "abort" bricht ab, "none" = gibt es nicht."""
+    page.add_init_script(
+        f"""
+        window.__shared = [];
+        const mode = {json.dumps(mode)};
+        Object.defineProperty(navigator, "canShare", {{
+          configurable: true,
+          value: mode === "none" ? undefined : () => true,
+        }});
+        Object.defineProperty(navigator, "share", {{
+          configurable: true,
+          value: async ({{ files }}) => {{
+            if (mode === "abort") throw new DOMException("abgebrochen", "AbortError");
+            for (const file of files) window.__shared.push({{ name: file.name, text: await file.text() }});
+          }},
+        }});
+        """
+    )
+
+
+def open_parent_area(page: Page) -> None:
+    for _ in range(5):
+        page.click("#app-title")
+    expect(page.locator("#parent-area")).to_be_visible()
+
+
+def backup_json(daten: dict, exportiert: str = "2026-10-24T18:00") -> str:
+    return json.dumps({"app": "vokabeltrainer", "version": 1, "exportiert": exportiert, "daten": daten})
+
+
+def upload_backup(page: Page, content: str) -> None:
+    page.set_input_files(
+        "#backup-file",
+        files=[{"name": "sicherung.json", "mimeType": "application/json", "buffer": content.encode()}],
+    )
+
+
+def storage_item(page: Page, key: str):
+    return page.evaluate("(key) => JSON.parse(localStorage.getItem(key))", key)
+
+
+def test_eltern_bereich_ist_versteckt(page: Page):
+    page.goto("/")
+    area = page.locator("#parent-area")
+    expect(area).to_be_hidden()
+    for _ in range(4):
+        page.click("#app-title")
+    expect(area).to_be_hidden()  # 4× reicht nicht
+    page.click("#app-title")
+    expect(area).to_be_visible()
+    expect(page.locator("#last-backup")).to_have_text("Letzte Sicherung: noch nie")
+    expect(page.locator("#last-backup")).to_have_class("last-backup due")  # orange
+
+    page.click("#parent-close")
+    expect(area).to_be_hidden()
+    page.reload()
+    expect(area).to_be_hidden()
+
+
+def test_sichern_ueber_teilen_menue(page: Page):
+    stub_share(page)
+    set_stars(page, 40)
+    open_parent_area(page)
+    page.click("#backup-save")
+    expect(page.locator("#backup-message")).to_contain_text("Gesichert als vokabeltrainer-")
+    expect(page.locator("#last-backup")).to_have_text("Letzte Sicherung: heute")
+    expect(page.locator("#last-backup")).to_have_class("last-backup")  # nicht mehr orange
+
+    page.click("#backup-save")  # zweite Sicherung: jetzt gibt es auch das Sicherungsdatum im Speicher
+    page.wait_for_function("window.__shared.length === 2")
+    shared = page.evaluate("window.__shared")
+    assert BACKUP_NAME.match(shared[1]["name"])
+    backup = json.loads(shared[1]["text"])
+    assert backup["app"] == "vokabeltrainer"
+    assert backup["version"] == 1
+    assert backup["daten"]["vokabeltrainer:v1:sterne"]["earned"] == 40
+    assert "vokabeltrainer:v1:letzte-sicherung" not in backup["daten"]  # gehört zum Gerät
+
+
+def test_sichern_abbrechen_zaehlt_nicht(page: Page):
+    stub_share(page, "abort")
+    page.goto("/")
+    open_parent_area(page)
+    page.click("#backup-save")
+    expect(page.locator("#last-backup")).to_have_text("Letzte Sicherung: noch nie")
+    expect(page.locator("#backup-message")).to_be_hidden()
+
+
+def test_sichern_ohne_teilen_menue_laedt_herunter(page: Page):
+    stub_share(page, "none")
+    set_stars(page, 12)
+    open_parent_area(page)
+    with page.expect_download() as download_info:
+        page.click("#backup-save")
+    download = download_info.value
+    assert BACKUP_NAME.match(download.suggested_filename)
+    backup = json.loads(open(download.path(), encoding="utf-8").read())
+    assert backup["daten"]["vokabeltrainer:v1:sterne"]["earned"] == 12
+
+
+def test_wiederherstellen(page: Page, mini_list):
+    set_stars(page, 10)
+    page.evaluate(
+        """() => {
+          localStorage.setItem("vokabeltrainer:v1:test-mini:1", JSON.stringify({ boy: 2 }));
+          localStorage.setItem("vokabeltrainer:v1:letzte-sicherung", JSON.stringify("2026-10-30"));
+        }"""
+    )
+    page.reload()
+    open_parent_area(page)
+    upload_backup(
+        page,
+        backup_json(
+            {
+                "vokabeltrainer:v1:sterne": {"earned": 40, "redemptions": []},
+                "vokabeltrainer:v1:test-mini:verlauf": {"boy": "RRF"},
+            }
+        ),
+    )
+    expect(page.locator("#restore-question")).to_have_text("Sicherung vom 24.10. einspielen?")
+    expect(page.locator("#restore-compare")).to_have_text(
+        "In der Sicherung: 40 ⭐ · jetzt auf dem Gerät: 10 ⭐"
+    )
+    page.click("#restore-yes")
+
+    expect(page.locator("#backup-message")).to_have_text("Sicherung vom 24.10. eingespielt.")
+    expect(page.locator("#stars-balance")).to_have_text("⭐ 40 Sterne")
+    # ersetzt, nicht zusammengeführt: was nicht in der Sicherung steht, ist weg
+    assert storage_item(page, "vokabeltrainer:v1:test-mini:1") is None
+    assert storage_item(page, "vokabeltrainer:v1:test-mini:verlauf") == {"boy": "RRF"}
+    levels = page.locator(".list-button", has_text="Testliste").locator(".level")
+    expect(levels).to_have_text(["○○○ 4", "●○○ 0", "●●○ 0", "●●● 0"])
+    # das Sicherungsdatum gehört zum Gerät und bleibt
+    assert storage_item(page, "vokabeltrainer:v1:letzte-sicherung") == "2026-10-30"
+
+
+def test_wiederherstellen_abbrechen(page: Page):
+    set_stars(page, 10)
+    open_parent_area(page)
+    upload_backup(page, backup_json({"vokabeltrainer:v1:sterne": {"earned": 40, "redemptions": []}}))
+    page.click("#restore-no")
+    expect(page.locator("#restore-confirm")).to_be_hidden()
+    expect(page.locator("#stars-balance")).to_have_text("⭐ 10 Sterne")
+
+
+def test_falsche_datei_wird_abgelehnt(page: Page):
+    set_stars(page, 10)
+    open_parent_area(page)
+    upload_backup(page, json.dumps({"foo": 1}))
+    message = page.locator("#backup-message")
+    expect(message).to_have_text("Das ist keine Sicherung vom Vokabeltrainer.")
+    expect(message).to_have_class("error")
+    expect(page.locator("#restore-confirm")).to_be_hidden()
+    expect(page.locator("#stars-balance")).to_have_text("⭐ 10 Sterne")
+
+
+def test_sichern_und_auf_neuem_geraet_wiederherstellen(page: Page):
+    stub_share(page)
+    set_stars(page, 25)
+    open_parent_area(page)
+    page.click("#backup-save")
+    expect(page.locator("#backup-message")).to_contain_text("Gesichert als")
+    saved = page.evaluate("window.__shared[0].text")
+
+    page.evaluate("localStorage.clear()")  # wie ein neues Handy
+    page.reload()
+    expect(page.locator("#stars-balance")).to_have_text("⭐ 0 Sterne")
+    open_parent_area(page)
+    upload_backup(page, saved)
+    expect(page.locator("#restore-compare")).to_have_text(
+        "In der Sicherung: 25 ⭐ · jetzt auf dem Gerät: 0 ⭐"
+    )
+    page.click("#restore-yes")
+    expect(page.locator("#stars-balance")).to_have_text("⭐ 25 Sterne")
 
 
 # ---------- Sonstiges ----------

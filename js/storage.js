@@ -5,6 +5,10 @@
 import { emptyLedger } from "./logic.js";
 
 const PREFIX = "vokabeltrainer:v1";
+const STARS_KEY = `${PREFIX}:sterne`;
+
+// Gehört zum Gerät, nicht zum Lernstand: wird weder gesichert noch beim Wiederherstellen ersetzt.
+const LAST_BACKUP_KEY = `${PREFIX}:letzte-sicherung`;
 
 function read(key, fallback) {
   try {
@@ -61,16 +65,19 @@ export function saveHistory(listId, history) {
   write(historyKey(listId), history);
 }
 
-/** Sternekonto: { earned, redemptions: [{ date, amount }] } */
-export function loadStars() {
-  const ledger = read(`${PREFIX}:sterne`, null);
+function validLedger(ledger) {
   const valid =
     ledger && Number.isInteger(ledger.earned) && Array.isArray(ledger.redemptions);
   return valid ? ledger : emptyLedger();
 }
 
+/** Sternekonto: { earned, redemptions: [{ date, amount }] } */
+export function loadStars() {
+  return validLedger(read(STARS_KEY, null));
+}
+
 export function saveStars(ledger) {
-  write(`${PREFIX}:sterne`, ledger);
+  write(STARS_KEY, ledger);
 }
 
 /** Angefangene Portion der Super-Liste: { refs, answered, correct, stars } oder null */
@@ -88,4 +95,51 @@ export function clearPortion() {
   } catch (error) {
     console.warn("Portion konnte nicht gelöscht werden:", error);
   }
+}
+
+// ---------- Datensicherung ----------
+
+/** Alle Schlüssel des Lernstands (ohne das Datum der letzten Sicherung) */
+function appKeys() {
+  const keys = [];
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key?.startsWith(`${PREFIX}:`) && key !== LAST_BACKUP_KEY) keys.push(key);
+    }
+  } catch (error) {
+    console.warn("Speicher konnte nicht gelesen werden:", error);
+  }
+  return keys;
+}
+
+/** Der ganze Lernstand als { "<schlüssel>": wert, ... } für die Sicherungsdatei */
+export function exportEntries() {
+  return Object.fromEntries(appKeys().map((key) => [key, read(key, null)]));
+}
+
+/** Ersetzt den ganzen Lernstand durch die Einträge einer Sicherung. */
+export function replaceAllEntries(entries) {
+  try {
+    for (const key of appKeys()) localStorage.removeItem(key);
+  } catch (error) {
+    console.warn("Alter Stand konnte nicht gelöscht werden:", error);
+  }
+  for (const [key, value] of Object.entries(entries)) {
+    if (key.startsWith(`${PREFIX}:`) && key !== LAST_BACKUP_KEY) write(key, value);
+  }
+}
+
+/** Sternekonto aus den Einträgen einer Sicherung (für den Vergleich vor dem Einspielen) */
+export function ledgerFromEntries(entries) {
+  return validLedger(entries[STARS_KEY]);
+}
+
+/** Datum der letzten Sicherung auf diesem Gerät, z. B. "2026-10-31", oder null */
+export function loadLastBackup() {
+  return read(LAST_BACKUP_KEY, null);
+}
+
+export function saveLastBackup(isoDate) {
+  write(LAST_BACKUP_KEY, isoDate);
 }

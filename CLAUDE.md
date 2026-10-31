@@ -10,6 +10,7 @@ Statische Lern-Website (HTML, CSS, Vanilla-JavaScript als ES-Module) für das iP
 - **Git: Commits und Pushes macht nur der Nutzer.** Keine verändernden Git-Befehle ausführen, sondern Commit-Befehle zum Kopieren vorschlagen.
 - Keine neuen Abhängigkeiten oder Tools ohne Rückfrage. Installationen, die sudo brauchen, führt der Nutzer selbst aus; vorab sagen, was gebraucht wird.
 - Nur die Dateien ändern, die für die Aufgabe nötig sind.
+- **Keine persönlichen Daten** (z. B. den Namen des Kindes) in Code, Dateien, Testdaten oder Commit-Nachrichten. Das Repo ist öffentlich.
 
 ## Code
 

@@ -7,6 +7,14 @@ import {
   PORTION_SIZE,
   addStars,
   appendHistory,
+  backupFileName,
+  buildBackup,
+  daysBetween,
+  isBackupDue,
+  lastBackupText,
+  localIsoDateTime,
+  parseBackup,
+  registerTap,
   balance,
   buildCards,
   cardRef,
@@ -301,4 +309,89 @@ describe("speechText: Text zum Vorlesen", () => {
       assert.equal(speechText(text), expected);
     });
   }
+});
+
+describe("Geheimzugang: 5× tippen innerhalb von 3 Sekunden", () => {
+  const tapAt = (times) => {
+    let state = { taps: [], unlocked: false };
+    for (const time of times) state = registerTap(state.taps, time);
+    return state.unlocked;
+  };
+
+  test("5 schnelle Tipps schalten frei", () => {
+    assert.equal(tapAt([0, 300, 600, 900, 1200]), true);
+  });
+
+  test("4 Tipps reichen nicht", () => {
+    assert.equal(tapAt([0, 300, 600, 900]), false);
+  });
+
+  test("zu langsam: alte Tipps verfallen", () => {
+    assert.equal(tapAt([0, 800, 1600, 2400, 3200]), false);
+  });
+
+  test("nach dem Freischalten beginnt das Zählen von vorn", () => {
+    assert.deepEqual(registerTap([0, 1, 2, 3], 4), { taps: [], unlocked: true });
+  });
+});
+
+describe("Sicherungsdatei", () => {
+  const when = new Date(2026, 9, 31, 8, 5);
+
+  test("Zeitpunkt und Dateiname mit Uhrzeit", () => {
+    assert.equal(localIsoDateTime(when), "2026-10-31T08:05");
+    assert.equal(backupFileName(when), "vokabeltrainer-2026-10-31-0805.json");
+  });
+
+  test("Inhalt: Kennung, Version, Zeitpunkt und Daten", () => {
+    const entries = { "vokabeltrainer:v1:sterne": { earned: 5, redemptions: [] } };
+    assert.deepEqual(buildBackup(entries, when), {
+      app: "vokabeltrainer",
+      version: 1,
+      exportiert: "2026-10-31T08:05",
+      daten: entries,
+    });
+  });
+
+  test("eine eigene Sicherung wird wieder erkannt", () => {
+    const backup = buildBackup({ "vokabeltrainer:v1:portion": null }, when);
+    assert.deepEqual(parseBackup(JSON.stringify(backup)), { backup });
+  });
+
+  const notABackup = { error: "Das ist keine Sicherung vom Vokabeltrainer." };
+  const invalid = {
+    "kein JSON": "hallo",
+    "falsche App": JSON.stringify({ app: "andere", version: 1, exportiert: "2026-10-31T08:05", daten: {} }),
+    "unbekannte Version": JSON.stringify({ app: "vokabeltrainer", version: 2, exportiert: "2026-10-31T08:05", daten: {} }),
+    "ohne Zeitpunkt": JSON.stringify({ app: "vokabeltrainer", version: 1, daten: {} }),
+    "Daten als Liste": JSON.stringify({ app: "vokabeltrainer", version: 1, exportiert: "2026-10-31T08:05", daten: [] }),
+    "fremder Schlüssel": JSON.stringify({ app: "vokabeltrainer", version: 1, exportiert: "2026-10-31T08:05", daten: { fremd: 1 } }),
+    "null": "null",
+  };
+  for (const [name, text] of Object.entries(invalid)) {
+    test(`wird abgelehnt: ${name}`, () => {
+      assert.deepEqual(parseBackup(text), notABackup);
+    });
+  }
+});
+
+describe("Erinnerung an die Sicherung", () => {
+  test("Tage zwischen zwei Daten, auch über Monatsgrenzen", () => {
+    assert.equal(daysBetween("2026-10-24", "2026-10-31"), 7);
+    assert.equal(daysBetween("2026-10-29", "2026-11-02"), 4);
+    assert.equal(daysBetween("2026-10-24", "2026-10-26"), 2); // über die Zeitumstellung
+  });
+
+  test("Text", () => {
+    assert.equal(lastBackupText(null, "2026-10-31"), "Letzte Sicherung: noch nie");
+    assert.equal(lastBackupText("2026-10-31", "2026-10-31"), "Letzte Sicherung: heute");
+    assert.equal(lastBackupText("2026-10-30", "2026-10-31"), "Letzte Sicherung: gestern");
+    assert.equal(lastBackupText("2026-10-22", "2026-10-31"), "Letzte Sicherung: vor 9 Tagen");
+  });
+
+  test("fällig ab 7 Tagen oder wenn noch nie gesichert", () => {
+    assert.equal(isBackupDue(null, "2026-10-31"), true);
+    assert.equal(isBackupDue("2026-10-25", "2026-10-31"), false);
+    assert.equal(isBackupDue("2026-10-24", "2026-10-31"), true);
+  });
 });
