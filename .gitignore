@@ -1,3 +1,7 @@
 __pycache__/
 .pytest_cache/
 test-results/
+node_modules/
+auswertung/dist/
+# Sicherungsdateien enthalten echte Lerndaten: nie ins öffentliche Repo
+vokabeltrainer-*.json

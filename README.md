@@ -7,8 +7,9 @@ Eine kleine Website zum Vokabellernen auf dem iPhone. Die deutsche Vokabel wird 
 - **⭐ Sterne:** Jede richtige Antwort bringt `⌈8 · 2^(−k/3)⌉` Sterne (k = wie oft die Vokabel schon richtig war, also 8, 7, 6, 4, 4, 3, 2, …, mindestens 1). Fehler bringen nichts und kosten nichts. Für eine komplett geschaffte Liste (🏆) gibt es 1 Stern pro Vokabel extra. Auf der Startseite stehen der Kontostand, ein Feld zum Einlösen und die letzten 3 Einlösungen. Die Belohnung gibt es im echten Leben.
 - **🔊 Anhören:** Nach dem Prüfen liest die eingebaute Sprachausgabe des iPhones die Lösung auf britischem Englisch vor, nur auf Knopfdruck. Ist nichts zu hören: Lautstärke und Stummschalter prüfen. Bessere Stimmen gibt es kostenlos unter *Einstellungen → Bedienungshilfen → Gesprochene Inhalte → Stimmen → Englisch*.
 - **Eltern-Bereich (versteckt):** 5× schnell auf die Überschrift „Vokabeltrainer“ tippen. Dort lassen sich die Daten sichern und wiederherstellen, siehe unten.
+- **📊 Auswertung (für die Eltern, am Computer):** <https://tillweigt.github.io/vokabeltrainer/auswertung/>, siehe unten.
 
-Es gibt kein Framework, keinen Build-Schritt und keinen Server-Code: nur HTML, CSS, JavaScript und JSON-Dateien.
+Die App hat kein Framework, keinen Build-Schritt und keinen Server-Code: nur HTML, CSS, JavaScript und JSON-Dateien. Nur die Auswertung in `auswertung/` ist ein eigenes kleines Projekt mit TypeScript, React und Vite.
 
 ## Kurzbefehle
 
@@ -16,9 +17,12 @@ Es gibt kein Framework, keinen Build-Schritt und keinen Server-Code: nur HTML, C
 |---|---|
 | `make` | Übersicht der Befehle |
 | `make serve` | Website lokal starten (anderer Port: `make serve PORT=8080`) |
-| `make test` | Alle Tests: erst `make unit`, dann `make e2e` |
+| `make test` | Alle Tests: `make unit`, `make auswertung-test`, dann `make e2e` |
 | `make unit` | Unit-Tests für `js/logic.js` (Node, eingebauter Test-Runner) |
-| `make e2e` | Browser-Tests (zusehen: `make e2e ARGS="--headed --slowmo 300"`) |
+| `make e2e` | Browser-Tests für App und Auswertung (zusehen: `make e2e ARGS="--headed --slowmo 300"`) |
+| `make auswertung` | Auswertung lokal starten, <http://localhost:5173> |
+| `make auswertung-test` | Auswertung: Typprüfung und Unit-Tests (Vitest) |
+| `make auswertung-build` | Auswertung bauen, nach `auswertung/dist` |
 
 ## Starten
 
@@ -45,6 +49,8 @@ uv run --with pytest-playwright playwright install --with-deps chromium
 ```
 
 Mit `make e2e ARGS="--headed --slowmo 300"` kann man zusehen.
+
+**Auswertung** (`make auswertung-test`, dahinter `npm run typecheck` und `npm test` in `auswertung/`): Typprüfung mit TypeScript und Unit-Tests mit Vitest für alles in `auswertung/src/analysis/`. Beim ersten Mal installiert `make` die npm-Pakete (`npm ci`, ohne sudo). `make e2e` baut die Auswertung vorher und prüft sie zusätzlich im Browser.
 
 ## Neue Vokabelliste
 
@@ -97,7 +103,24 @@ Jede Antwort, jede komplett geschaffte Liste (🏆) und jede Einlösung wird als
 - `sterne`: Änderung des Kontostands (Antwort `+7`/`0`, Runde = Bonus, Einlösung negativ). Die Summe über die Zeit ergibt den Kontostand.
 - `nachgetragen: true`: aus dem alten Verlauf erzeugt (Zeitpunkt 31.10.2026 ab 10:00, ohne getippte Antwort, Modus und Sterne)
 
-**Wichtig:** Nach jeder Sicherung löscht die App die Einträge, die schon in der vorletzten Sicherung standen (bis zu 5.000 bleiben auf dem Gerät). Das ganze Protokoll ergibt sich deshalb erst aus **allen** Sicherungsdateien zusammen, **alte Dateien also behalten**. Die Dateien überlappen sich; Doppelte entfernt man beim Einlesen:
+**Wichtig:** Nach jeder Sicherung löscht die App die Einträge, die schon in der vorletzten Sicherung standen (bis zu 5.000 bleiben auf dem Gerät). Das ganze Protokoll ergibt sich deshalb erst aus **allen** Sicherungsdateien zusammen, **alte Dateien also behalten**. Weil sich die Dateien überlappen, schadet eine einzelne fehlende Datei nicht, zwei hintereinander schon.
+
+### Auswertung im Browser
+
+<https://tillweigt.github.io/vokabeltrainer/auswertung/> am Computer öffnen und **alle** Sicherungsdateien aus dem iCloud-Ordner auswählen (oder auf die Seite ziehen). Die Dateien werden nur im Browser gelesen, nichts wird hochgeladen. Die Seite zeigt:
+
+- **Datenprüfung:** Ergibt das zusammengeführte Protokoll genau den Verlauf jeder Vokabel und den Kontostand der App? Sonst fehlen Dateien.
+- **Nutzung:** Zeitstrahl der letzten 14 Tage (bis zur letzten Antwort) und Durchschnitte über die ganze Zeit. Eine Einheit endet nach 10 Minuten ohne Antwort.
+- **Können:** pro Vokabel geschätzt aus den letzten 5 Antworten, `(R + 1) / (n + 2)` wie das Gewicht der Super-Liste; Stufen sitzt (ab 80 %), meistens, wackelt, noch nicht (unter 40 %), nie gefragt. Verteilung pro Liste, Zeitverlauf und Tabelle aller Vokabeln.
+- **Fehler:** jede falsche Antwort eingeordnet (Kleinigkeit, Kurzform, „to“, Verwechslung, Tippfehler, falsch), Problemvokabeln mit dem Getippten und Hinweise, wo eine weitere Lösung oder eine klarere Frage helfen könnte.
+- **App überprüfen:** Wie viele Antworten bis „sitzt“, Rückfälle danach, und ob die Super-Liste schwere Vokabeln wirklich öfter fragt.
+- **Sterne:** Kontostand im Zeitverlauf, verdient pro Woche, Sterne pro Übungsminute und pro richtiger Antwort.
+
+Lokal: `make auswertung` und <http://localhost:5173>. Der Code liegt in `auswertung/`: reine Logik in `src/analysis/` (mit Tests), Oberfläche in `src/components/`. Die Formeln der App (Sterne, Gewicht, `normalize`) kommen über `src/analysis/app-logic.ts` direkt aus `js/logic.js`.
+
+### Eigene Auswertung mit Python
+
+Die Dateien überlappen sich; Doppelte entfernt man beim Einlesen:
 
 ```python
 import glob, json
@@ -126,8 +149,12 @@ df["kontostand"] = df["sterne"].fillna(0).cumsum()  # ab Beginn des Protokolls
 | `lists/` | Die Vokabellisten |
 | `tools/serve.py` | Lokaler Entwicklungsserver ohne Browser-Cache |
 | `tests/logic.test.js` | Unit-Tests mit `node --test` |
-| `tests/e2e/` | Browser-Tests mit Playwright |
+| `tests/e2e/` | Browser-Tests mit Playwright (App und Auswertung) |
+| `auswertung/` | Die Auswertung: TypeScript, React, Vite, Plotly; Tests mit Vitest |
+| `.github/workflows/pages.yml` | Testen, Bauen und Veröffentlichen auf GitHub Pages |
 
 ## Veröffentlichung
 
-GitHub Pages veröffentlicht den Branch `main` unter <https://tillweigt.github.io/vokabeltrainer/>. Nach einem Push dauert es etwa eine Minute, bis die neue Version online ist.
+Nach jedem Push auf `main` testet GitHub Actions die App und die Auswertung, baut die Auswertung und veröffentlicht beides: die App unter <https://tillweigt.github.io/vokabeltrainer/>, die Auswertung unter `…/auswertung/`. Das dauert etwa zwei Minuten; den Fortschritt zeigt der Tab *Actions* im Repo. Schlägt ein Test fehl, bleibt die vorherige Version online.
+
+Einmalig nötig: im Repo unter *Settings → Pages → Build and deployment → Source* „GitHub Actions“ wählen.

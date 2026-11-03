@@ -4,6 +4,60 @@ Dieses Dokument fasst ein Vorgespräch zusammen. Es dient als Grundlage, um die 
 
 ---
 
+## Stand: Auswertung (festgelegt und umgesetzt am 3.11.2026)
+
+Eigene Seite für Till in `auswertung/`, veröffentlicht unter `/vokabeltrainer/auswertung/`. Zweck: im Browser am Computer sehen, wann und wie lange geübt wird, wie gut die Vokabeln sitzen und wie sich die Sterne verhalten, dazu Hinweise, ob App und Listen passen.
+
+**Technik:** TypeScript, React, Vite, Plotly (eigene kleine React-Hülle); Tests mit Vitest, Levenshtein zusätzlich gegen das Paket `fastest-levenshtein` (nur für Tests). Reine Logik in `src/analysis/`, Oberfläche in `src/components/`. Die Funktionen der App (`normalize`, `buildCards`, `starsFor`, `weight`, `parseBackup`, …) kommen typisiert über `src/analysis/app-logic.ts` aus `js/logic.js`. Die Vokabellisten werden beim Bauen eingepackt. GitHub Actions testet, baut und veröffentlicht App und Auswertung nach jedem Push auf `main`. Die App selbst bleibt ohne npm und Build-Schritt.
+
+**Daten:** Die Sicherungsdateien werden auf der Seite ausgewählt, nur im Browser gelesen und zusammengeführt: Protokoll ohne Doppelte (über `art`, `zeit`, `liste`, `vokabel`), nach Zeit sortiert; Verlauf und Sterne aus der neuesten Datei. Echte Sicherungsdateien stehen in der `.gitignore`.
+
+- **Datenprüfung:** Protokoll nachspielen und mit dem Verlauf der neuesten Datei vergleichen, Summe der Sterne (nachgetragene Antworten mit `starsFor` nachgerechnet) mit dem Kontostand. Bei Abweichung oben eine Warnung. Wegen der Überlappung schadet eine einzelne fehlende Datei nicht, erst zwei hintereinander.
+- **Nutzung** (nur echte Antworten):
+  - Zeitstrahl der 14 Tage bis zur letzten Antwort: eine Zeile pro Tag (auch ohne Übung), waagerecht die Uhrzeit, ein Balken pro Einheit mit Dauer, Antworten und davon richtig.
+  - Eine Einheit endet nach mehr als 10 Minuten ohne Antwort. Dauer = erste bis letzte Antwort plus eine typische Antwortzeit (Median der Abstände in Einheiten, anfangs 15 s).
+  - Durchschnitte über die ganze Zeit: Übungstage pro Woche, Minuten pro Woche, Minuten pro Übungstag, Länge einer Einheit (unter einer Woche nicht hochgerechnet). Dazu Minuten pro Woche (Montag bis Sonntag) als Balken.
+- **Können pro Vokabel:** `(R + 1) / (n + 2)` über die letzten 5 Antworten (= 1 − Gewicht der Super-Liste), nachgetragene zählen mit. Stufen: sitzt (ab 80 %), meistens (60–80 %), wackelt (40–60 %), noch nicht (unter 40 %), nie gefragt; ganzzahlig verglichen, damit Grenzfälle stimmen.
+  - gestapelter Balken pro Liste und für alle Vokabeln, Verteilung im Zeitverlauf (Stand am Ende jedes Tages), Tabelle aller Vokabeln mit „zuletzt gefragt“
+- **Fehlerarten** (nur Antworten mit `getippt`), eingeordnet nach der ersten Stufe, bei der die Antwort passt:
+  1. Kleinigkeit: Groß- und Kleinschreibung, Satzzeichen
+  2. Kurzform: feste Tabelle (`here's` ↔ `here is`), `'s` nur aus der Tabelle (wegen Besitz-s)
+  3. „to“ fehlt oder ist zu viel
+  4. Verwechslung: Lösung einer anderen Vokabel (vor Tippfehler geprüft: `bad` statt `bed` ist ein anderes Wort)
+  5. Tippfehler: Levenshtein-Distanz bis 1 bei Lösungen bis 4 Zeichen, sonst bis 2; bis 2 Zeichen gar nicht (`he` → `me`)
+  6. falsch
+  - Dazu der Anteil der Fehler, die bei lockerer Bewertung (1–3) richtig gewesen wären, und Problemvokabeln (noch nicht, wackelt) mit den zuletzt getippten Antworten.
+- **Nochmal ansehen:** Vokabeln mit mindestens 2 Fehlern der Stufen 1–3, die mindestens die Hälfte ihrer Fehler ausmachen: weitere Lösung erlauben oder Bewertung lockern? Verwechslungen: Ist die deutsche Frage eindeutig? In der App bleibt „fast richtig“ falsch.
+- **App überprüfen:** Antworten bis zum ersten „sitzt“ und Rückfälle danach; Auswahl der Super-Liste pro Stufe im Vergleich zu reinem Zufall (Faktor über 1 = öfter).
+- **Sterne:** Kontostand im Zeitverlauf mit 🏆-Boni und Einlösungen, verdient pro Woche, Sterne pro Übungsminute und pro richtiger Antwort.
+- Nicht dabei: Öffnen und Schließen der App.
+
+---
+
+## Vorgemerkt für später (Stand: 3.11.2026)
+
+Noch nicht umsetzen, erst wenn Till es ansagt. Bis dahin gelten die Regeln aus CLAUDE.md unverändert (für die App: keine Frameworks, kein Build-Schritt, keine npm-Pakete).
+
+**1. App auf TypeScript und React umstellen**
+- Ziel: Till lernt TypeScript im Detail, als universelle Ergänzung zu Python (Web, Apps, Desktop, Server). Swift, Dart und Kotlin sind verworfen, weil sie außerhalb des App Stores wenig bringen. Der Einstieg ist mit der Auswertung gemacht (siehe „Stand: Auswertung“).
+- Weg: zuerst `js/logic.js` nach TypeScript übertragen, mit den bestehenden Unit- und E2E-Tests als Sicherheitsnetz. Danach die Oberfläche in React.
+- Offen:
+  - Lernmodus: Till schreibt selbst mit Coaching, oder Claude baut und Till liest mit (Empfehlung: Coaching).
+  - React fürs Web oder gleich React Native mit Expo (eine Codebasis für Web und App)? Bei React fürs Web bleibt beim späteren Wechsel zur App die Logik, die Oberfläche wird neu geschrieben.
+  - Die iOS-Eigenheiten der Tastatur (Fokus) müssen auch in React gelten.
+
+**2. App im App Store** (danach)
+- Ziel: lernen, wie man Apps über den Store anbietet. Weg: React Native mit Expo, also dieselbe Sprache.
+- Kosten: Apple Developer Program 99 € pro Jahr. Bei einer kostenlosen App keine Provision.
+- Ablauf: Simulator und eigenes iPhone (kostenlos) → TestFlight intern → TestFlight extern (erste Prüfung durch Apple) → eventuell öffentlich im Store. Die Store-Schritte macht Till selbst, Claude coacht.
+- Zu beachten:
+  - Die Vokabellisten stammen aus dem Schulbuch. In einer öffentlichen App ist das heikel (Richtlinie 5.2). Öffentlich bräuchte es eigene Listen der Nutzer.
+  - Als Einzelperson steht Tills Name als Anbieter im Store.
+  - Die App hat einen eigenen Speicher. Die Daten ziehen über die Sicherungsdatei um.
+- Offen: öffentlich oder nur TestFlight für die Familie? Android auch? Ab wann ist das MacBook da?
+
+---
+
 ## Stand: Antwortprotokoll (festgelegt am 31.10.2026)
 
 Zweck: Auswertung durch Till (z. B. mit Python am Mac). Die App selbst nutzt das Protokoll nicht.

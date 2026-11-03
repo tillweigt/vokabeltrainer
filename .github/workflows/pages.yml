@@ -1,0 +1,63 @@
+# Veröffentlicht App und Auswertung auf GitHub Pages, nach jedem Push auf main.
+# Die App wird unverändert kopiert; die Auswertung wird vorher getestet und gebaut.
+# Schlägt etwas fehl, bleibt die zuletzt veröffentlichte Version online.
+
+name: Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: # „Run workflow“ von Hand im Tab Actions
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: auswertung/package-lock.json
+
+      - name: Unit-Tests der App
+        run: node --test tests/*.test.js
+
+      - name: Auswertung installieren, prüfen, testen und bauen
+        working-directory: auswertung
+        run: |
+          npm ci
+          npm run typecheck
+          npm test
+          npm run build
+
+      - name: Seite zusammenstellen
+        run: |
+          mkdir _site
+          cp -r index.html style.css js lists _site/
+          cp -r auswertung/dist _site/auswertung
+
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5
