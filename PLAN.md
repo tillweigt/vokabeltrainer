@@ -4,6 +4,34 @@ Dieses Dokument fasst ein Vorgespräch zusammen. Es dient als Grundlage, um die 
 
 ---
 
+## Stand: Mehrdeutigkeit über Listen und Varianten (festgelegt am 11.11.2026)
+
+Ergänzt und ändert die Abschnitte „Stand: …“ darunter (vor allem „Verlauf und Super-Liste“ und „MVP“). Bei Widersprüchen gilt dieser Abschnitt.
+
+**Varianten aus dem Buch (`auch`)**
+- Neues optionales Feld `auch` pro Vokabel: weitere richtige Schreibweisen. Beispiele: „there's (= there is)“ → `{ "en": "there's", "auch": ["there is"], "de": ["es gibt"] }`, „to listen (to)“ → `"en": "to listen to"` mit `"auch": ["to listen"]`.
+- Die Vokabel bleibt `en`: Verlauf, Punkte und Sterne hängen daran, 🔊 liest `en`.
+
+**Mehrdeutigkeit über alle Listen eines Fachs**
+- Richtig ist jede Lösung (samt ihrer `auch`-Varianten) aus **allen Listen desselben Fachs**, deren deutsche Bedeutungen sich mit denen der Frage überschneiden (exakter Vergleich der `de`-Einträge wie bisher). Beispiel: „klein“ → `little` (Unit 1) oder `small` (Unit 1 – Teil 2). Listen anderer Fächer zählen nicht.
+- Gilt in **beiden Modi** (einzelne Liste und Super-Liste), damit dieselbe Frage überall gleich bewertet wird.
+- Reihenfolge der erlaubten Antworten: eigene Lösung, eigene `auch`, Alternativen aus derselben Liste, dann aus anderen Listen. Ohne Doppelte, verglichen nach `normalize` (`I’m` = `I'm`).
+- Sterne, Punkte und Verlauf zählen für die **gefragte** Vokabel, nicht für die getippte.
+- Umsetzung: `buildCards(list, allLists)` in `js/logic.js`. App und Auswertung übergeben alle Listen, die Regel „gleiches Fach“ steckt in `buildCards`.
+
+**Rückmeldung**
+- Nur eine Lösung muss getippt werden. Nach einer **richtigen** Antwort steht zusätzlich „Auch richtig: …“ mit den übrigen gültigen Lösungen (ohne die getippte). Nach einer **falschen** wie bisher „Richtig wäre: …“ und „Auch richtig: …“. Das gilt für jede Karte mit mehreren Lösungen, auch innerhalb einer Liste („Ich heiße …“).
+
+**Auswertung**
+- Bewertet wie die App (dieselbe Funktion `buildCards` mit allen Listen).
+- Neue Fehlerart **„jetzt richtig“**, als erste geprüft: Die Antwort war damals falsch, ist nach den heutigen Listen aber richtig (z. B. „small“ auf „klein“, bevor Unit 1 – Teil 2 dazukam). Sie zählt nicht zur lockeren Bewertung und nicht für „Nochmal ansehen“.
+- Verwechslungen erkennen auch die `auch`-Varianten anderer Vokabeln.
+- Alte Protokolleinträge bleiben, wie sie sind: `richtig` zeigt, wie die App damals bewertet hat.
+
+**Tests:** Unit-Tests für `buildCards` (Reihenfolge, `auch`, andere Fächer, keine Doppelten), Vitest für Katalog und Fehlerarten, E2E mit zwei Englisch-Listen und einer Liste aus einem anderen Fach (Fixture `two_lists`).
+
+---
+
 ## Stand: Auswertung (festgelegt und umgesetzt am 3.11.2026)
 
 Eigene Seite für Till in `auswertung/`, veröffentlicht unter `/vokabeltrainer/auswertung/`. Zweck: im Browser am Computer sehen, wann und wie lange geübt wird, wie gut die Vokabeln sitzen und wie sich die Sterne verhalten, dazu Hinweise, ob App und Listen passen.
@@ -175,13 +203,13 @@ Ergänzt und ändert den Abschnitt „Stand: MVP“ darunter. Bei Widersprüchen
 - Enthält alle Vokabeln aller Englisch-Listen, auch geschaffte und nie geübte.
 - Portion mit **10 verschiedenen** Vokabeln (bei weniger Vokabeln: alle).
 - **Gewicht** = `(F + 1) / (n + 2)` über die **letzten 5** Antworten des Verlaufs (nie gefragt → 1/2). Gezogen wird zufällig proportional zum Gewicht, neu bei jeder Portion.
-- Mehrdeutigkeit nur **innerhalb der eigenen Liste** (wie bisher).
+- Mehrdeutigkeit damals nur innerhalb der eigenen Liste. Seit 11.11.2026 über alle Listen des Fachs, siehe „Stand: Mehrdeutigkeit über Listen und Varianten“.
 - Oben „Karte 3 von 10“, keine Punkte. Ende: „7 von 10 richtig“ mit „Weiter üben“ und „Zur Übersicht“.
 - Antworten gehen **nur in den Verlauf**, nicht in Punkte oder Runden der Listen.
 
 **Tests:** Unit-Tests für `js/logic.js` mit `node --test` (`make unit`), E2E wie bisher (`make e2e`), beides mit `make test`.
 
-**Geparkt:** Mehrdeutigkeit über Listen hinweg, Test-Modus mit mehreren ausgewählten Listen, Anzeige des Verlaufs.
+**Geparkt:** Test-Modus mit mehreren ausgewählten Listen, Anzeige des Verlaufs. (Mehrdeutigkeit über Listen hinweg ist seit 11.11.2026 umgesetzt, siehe oben.)
 
 ---
 

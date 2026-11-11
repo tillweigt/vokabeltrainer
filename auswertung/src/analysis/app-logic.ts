@@ -7,7 +7,9 @@ import type { Backup, Card, Ledger, VocabList } from "./types";
 export const RECENT_ANSWERS: number = logic.RECENT_ANSWERS;
 
 export const normalize: (text: string) => string = logic.normalize;
-export const buildCards: (list: VocabList) => Card[] = logic.buildCards;
+export const isCorrect: (input: string, answers: string[]) => boolean = logic.isCorrect;
+/** `allLists`: alle Listen; erlaubt sind auch Lösungen aus anderen Listen desselben Fachs */
+export const buildCards: (list: VocabList, allLists?: VocabList[]) => Card[] = logic.buildCards;
 export const weight: (history: string) => number = logic.weight;
 export const starsFor: (history: string) => number = logic.starsFor;
 export const balance: (ledger: Ledger) => number = logic.balance;

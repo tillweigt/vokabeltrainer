@@ -95,6 +95,63 @@ describe("buildCards", () => {
     assert.deepEqual(myName.antworten, ["My name is …", "I'm …"]);
     assert.deepEqual(boy.antworten, ["boy"]);
   });
+
+  // Erfundene Listen: zwei Englisch-Listen mit gleicher Bedeutung „klein“, eine aus einem anderen Fach
+  const ENGLISH_1 = {
+    id: "e1",
+    fach: "Englisch",
+    items: [
+      { en: "little", auch: ["wee"], de: ["klein"] },
+      { en: "tiny", auch: ["teeny"], de: ["winzig", "klein"] },
+      { en: "there's", auch: ["there is"], de: ["es gibt"] },
+    ],
+  };
+  const ENGLISH_2 = {
+    id: "e2",
+    fach: "Englisch",
+    items: [
+      { en: "small", de: ["klein"] },
+      { en: "there is", de: ["es gibt"] },
+    ],
+  };
+  const FRENCH = { id: "f1", fach: "Französisch", items: [{ en: "petit", de: ["klein"] }] };
+  const ALL = [ENGLISH_2, FRENCH, ENGLISH_1]; // eigene Liste bewusst nicht an erster Stelle
+
+  test("Reihenfolge: eigene Lösung, eigene Varianten, dieselbe Liste, andere Listen", () => {
+    const [little, tiny] = buildCards(ENGLISH_1, ALL);
+    assert.deepEqual(little.antworten, ["little", "wee", "tiny", "teeny", "small"]);
+    assert.deepEqual(tiny.antworten, ["tiny", "teeny", "little", "wee", "small"]);
+    const [small] = buildCards(ENGLISH_2, ALL);
+    assert.deepEqual(small.antworten, ["small", "little", "wee", "tiny", "teeny"]);
+  });
+
+  test("Varianten aus „auch“ sind richtig, die Karte bleibt die der Vokabel", () => {
+    const thereIs = buildCards(ENGLISH_1, ALL)[2];
+    assert.equal(thereIs.key, "there's");
+    assert.equal(thereIs.frage, "es gibt");
+    assert.equal(isCorrect("there is", thereIs.antworten), true);
+    assert.equal(isCorrect("there’s", thereIs.antworten), true);
+  });
+
+  test("andere Fächer zählen nicht", () => {
+    const [little] = buildCards(ENGLISH_1, ALL);
+    assert.equal(little.antworten.includes("petit"), false);
+    const [petit] = buildCards(FRENCH, ALL);
+    assert.deepEqual(petit.antworten, ["petit"]);
+  });
+
+  test("keine Doppelten, auch nicht mit iPhone-Apostroph", () => {
+    assert.deepEqual(buildCards(ENGLISH_1, ALL)[2].antworten, ["there's", "there is"]);
+    assert.deepEqual(buildCards(ENGLISH_2, ALL)[1].antworten, ["there is", "there's"]);
+    const typographic = { id: "t", fach: "Englisch", items: [{ en: "I’m …", de: ["Ich bin …"] }] };
+    const plain = { id: "p", fach: "Englisch", items: [{ en: "I'm …", de: ["Ich bin …"] }] };
+    assert.deepEqual(buildCards(typographic, [typographic, plain])[0].antworten, ["I’m …"]);
+  });
+
+  test("ohne weitere Listen nur die eigene Liste, wie bisher", () => {
+    const [little] = buildCards(ENGLISH_1);
+    assert.deepEqual(little.antworten, ["little", "wee", "tiny", "teeny"]);
+  });
 });
 
 describe("Liste: Durchgänge und Punkte", () => {

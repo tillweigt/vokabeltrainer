@@ -2,17 +2,33 @@
 // nur zu sehen, ob eine Vokabel eine weitere Lösung oder eine klarere Frage braucht.
 // Alles mit festen Regeln, ohne KI: Das Ergebnis ist immer gleich und lässt sich testen.
 
-import { normalize } from "./app-logic";
+import { isCorrect, normalize } from "./app-logic";
 import type { Replay, ReplayedAnswer } from "./replay";
 import type { Card } from "./types";
 import type { Vocab } from "./vocab";
 
-export type ErrorKind = "kleinigkeit" | "kurzform" | "to" | "verwechslung" | "tippfehler" | "falsch";
+export type ErrorKind =
+  | "jetztRichtig"
+  | "kleinigkeit"
+  | "kurzform"
+  | "to"
+  | "verwechslung"
+  | "tippfehler"
+  | "falsch";
 
 /** In dieser Reihenfolge wird geprüft; die erste passende Stufe gewinnt. */
-export const ERROR_KINDS: ErrorKind[] = ["kleinigkeit", "kurzform", "to", "verwechslung", "tippfehler", "falsch"];
+export const ERROR_KINDS: ErrorKind[] = [
+  "jetztRichtig",
+  "kleinigkeit",
+  "kurzform",
+  "to",
+  "verwechslung",
+  "tippfehler",
+  "falsch",
+];
 
 export const ERROR_LABELS: Record<ErrorKind, string> = {
+  jetztRichtig: "jetzt richtig",
   kleinigkeit: "Kleinigkeit",
   kurzform: "Kurzform",
   to: "„to“",
@@ -22,6 +38,7 @@ export const ERROR_LABELS: Record<ErrorKind, string> = {
 };
 
 export const ERROR_DESCRIPTIONS: Record<ErrorKind, string> = {
+  jetztRichtig: "damals falsch, heute erlaubt (Lösung aus einer anderen Liste oder „auch“)",
   kleinigkeit: "nur Groß-/Kleinschreibung oder Satzzeichen",
   kurzform: "Kurz- statt Langform oder umgekehrt (here's ↔ here is)",
   to: "„to“ fehlt oder ist zu viel",
@@ -32,6 +49,13 @@ export const ERROR_DESCRIPTIONS: Record<ErrorKind, string> = {
 
 /** Diese Fehler wären bei lockerer Bewertung richtig gewesen. */
 export const LENIENT_KINDS: ReadonlySet<ErrorKind> = new Set(["kleinigkeit", "kurzform", "to"]);
+
+/**
+ * Diese Antworten waren damals falsch, sind nach den heutigen Listen aber richtig (z. B. eine
+ * Lösung, die erst später in einer anderen Liste dazukam). Für „Nochmal ansehen“ zählen sie
+ * nicht, denn dort ist nichts mehr zu tun.
+ */
+export const NOW_CORRECT: ErrorKind = "jetztRichtig";
 
 // Bewusst eine feste Liste: Ein allgemeines „'s → is“ ginge schief, weil „Tom's ball“ ein
 // Besitz-s ist. Beide Seiten werden gleich ausgeschrieben, Mehrdeutiges (I'd) stört deshalb nicht.
@@ -131,18 +155,27 @@ export interface Classification {
   confusedWith?: Vocab;
 }
 
-/** Schlägt zu einer (gelockerten) Eingabe die Vokabel nach, deren Lösung sie ist. */
+/**
+ * Schlägt zu einer (gelockerten) Eingabe die Vokabel nach, deren Lösung sie ist,
+ * einschließlich der Varianten aus `auch`.
+ */
 export function solutionIndex(vocab: Vocab[]): Map<string, Vocab> {
   const index = new Map<string, Vocab>();
   for (const v of vocab) {
-    const form = withoutTo(v.card.key);
-    if (!index.has(form)) index.set(form, v);
+    for (const spelling of [v.card.key, ...(v.item.auch ?? [])]) {
+      const form = withoutTo(spelling);
+      if (!index.has(form)) index.set(form, v);
+    }
   }
   return index;
 }
 
-/** Ordnet eine falsche Antwort ein: Der Vergleich wird stufenweise lockerer. */
+/**
+ * Ordnet eine falsche Antwort ein. Zuerst: Wäre sie nach den heutigen Listen richtig?
+ * Danach wird der Vergleich stufenweise lockerer.
+ */
 export function classify(typed: string, card: Card, solutions: Map<string, Vocab>): Classification {
+  if (isCorrect(typed, card.antworten)) return { kind: NOW_CORRECT };
   const matchesAt = (relax: (text: string) => string) =>
     card.antworten.some((answer) => relax(answer) === relax(typed));
   if (matchesAt(relaxed)) return { kind: "kleinigkeit" };
@@ -225,7 +258,7 @@ export const MIN_LENIENT_ERRORS = 2;
 export function reviewHints(errors: ClassifiedError[]): { solutions: SolutionHint[]; questions: QuestionHint[] } {
   const byVocab = new Map<string, { vocab: Vocab; errors: ClassifiedError[] }>();
   for (const error of errors) {
-    if (!error.vocab) continue;
+    if (!error.vocab || error.kind === NOW_CORRECT) continue;
     const group = byVocab.get(error.vocab.id) ?? { vocab: error.vocab, errors: [] };
     group.errors.push(error);
     byVocab.set(error.vocab.id, group);

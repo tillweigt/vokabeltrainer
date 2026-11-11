@@ -1,7 +1,7 @@
 """Gemeinsame Fixtures für die E2E-Tests.
 
 Startet einen lokalen Webserver für das Projekt und lässt Chromium ein iPhone simulieren.
-Aufruf (im Projektordner):  uv run --with pytest-playwright pytest tests/e2e
+Aufruf (im Projektordner):  make e2e  (Playwright-Version und Build siehe Makefile)
 """
 
 import copy
@@ -29,6 +29,39 @@ MINI_LIST = {
         {"en": "What's your name?", "de": ["Wie heißt du?"]},
         {"en": "boy", "de": ["Junge"]},
     ],
+}
+
+# Zwei Englisch-Listen mit gleicher Bedeutung („Junge“) und einer Variante über „auch“,
+# dazu eine Liste aus einem anderen Fach, deren Lösungen nicht zählen dürfen.
+LIST_ONE = {
+    "id": "test-eins",
+    "titel": "Liste eins",
+    "fach": "Englisch",
+    "typ": "vokabel",
+    "durchlauf": 1,
+    "items": [
+        {"en": "boy", "de": ["Junge"]},
+        {"en": "small", "de": ["klein"]},
+    ],
+}
+LIST_TWO = {
+    "id": "test-zwei",
+    "titel": "Liste zwei",
+    "fach": "Englisch",
+    "typ": "vokabel",
+    "durchlauf": 1,
+    "items": [
+        {"en": "lad", "de": ["Junge"]},
+        {"en": "there's", "auch": ["there is"], "de": ["es gibt"]},
+    ],
+}
+OTHER_SUBJECT = {
+    "id": "test-anderes-fach",
+    "titel": "Anderes Fach",
+    "fach": "Französisch",
+    "typ": "vokabel",
+    "durchlauf": 1,
+    "items": [{"en": "petit", "de": ["klein"]}],
 }
 
 
@@ -76,3 +109,19 @@ def mini_list(page):
     page.route("**/lists/index.json", lambda route: route.fulfill(json=["test-mini"]))
     page.route("**/lists/test-mini.json", lambda route: route.fulfill(json=data))
     return data
+
+
+@pytest.fixture
+def two_lists(page):
+    """Ersetzt die echten Listen durch LIST_ONE, LIST_TWO und OTHER_SUBJECT. Ergebnis: {id: Liste}."""
+    data = [copy.deepcopy(lst) for lst in (LIST_ONE, LIST_TWO, OTHER_SUBJECT)]
+
+    # Eigene Funktion statt `lambda route, lst=lst: …`: Playwright übergibt einem Handler mit
+    # zwei Parametern (route, request), dann landete der Request in `lst`.
+    def serve(lst):
+        return lambda route: route.fulfill(json=lst)
+
+    page.route("**/lists/index.json", lambda route: route.fulfill(json=[lst["id"] for lst in data]))
+    for lst in data:
+        page.route(f"**/lists/{lst['id']}.json", serve(lst))
+    return {lst["id"]: lst for lst in data}

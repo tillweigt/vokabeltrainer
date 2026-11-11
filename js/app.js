@@ -131,8 +131,15 @@ function mixLists() {
   return lists.filter((list) => list.fach === MIX_SUBJECT);
 }
 
+/** Karten einer Liste. Erlaubt sind auch Lösungen aus anderen Listen desselben Fachs. */
+function cardsFor(list) {
+  return buildCards(list, lists);
+}
+
 function mixCards() {
-  return mixLists().flatMap(buildCards);
+  // Bewusst mit Pfeilfunktion: flatMap übergibt (Liste, Index, Array), der Index darf
+  // nicht als zweites Argument bei buildCards landen.
+  return mixLists().flatMap((list) => cardsFor(list));
 }
 
 /** Jede Antwort landet im Verlauf der Vokabel, egal ob aus Liste oder Super-Liste. */
@@ -244,7 +251,7 @@ function renderMixButton() {
 }
 
 function renderListButton(list) {
-  const cards = buildCards(list);
+  const cards = cardsFor(list);
   const progress = loadProgress(list);
   const mastered = countMastered(cards, progress);
   const button = element("button", "list-button");
@@ -274,7 +281,7 @@ function renderLevels(cards, progress) {
 // ---------- Abfrage starten ----------
 
 function startList(list) {
-  const cards = buildCards(list);
+  const cards = cardsFor(list);
   const progress = loadProgress(list);
   session = { mode: "list", list, cards, progress, queue: startRound(cards, progress) };
   if (session.queue.length === 0) {
@@ -378,17 +385,22 @@ function checkAnswer() {
     saveMixPortion();
   }
   session.showingFeedback = true;
-  showFeedback(card, correct, earned);
+  showFeedback(card, correct, earned, input.value);
   updateStatus(card);
   submitButton.textContent = "Weiter";
 }
 
-function showFeedback(card, correct, earned) {
+function showFeedback(card, correct, earned, typed) {
   feedback.replaceChildren();
   feedback.className = correct ? "correct" : "wrong";
   input.classList.add(correct ? "correct" : "wrong");
   if (correct) {
     feedback.append(element("strong", "", `Richtig! +${earned} ⭐`));
+    // Nur eine Lösung muss getippt werden; die übrigen gültigen werden danach gezeigt.
+    const others = card.antworten.filter((answer) => !isCorrect(typed, [answer]));
+    if (others.length > 0) {
+      feedback.append(element("span", "also", `Auch richtig: ${others.join(" / ")}`));
+    }
     const justMastered =
       session.mode === "list" && (session.progress[card.key] ?? 0) >= MASTERY_TARGET;
     if (justMastered) {

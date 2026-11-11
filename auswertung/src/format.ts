@@ -46,6 +46,7 @@ export const LEVEL_COLORS: Record<Level, string> = {
 };
 
 export const ERROR_COLORS: Record<ErrorKind, string> = {
+  jetztRichtig: "#66bb6a",
   kleinigkeit: "#9cc3ea",
   kurzform: "#6aa6de",
   to: "#3d85c6",

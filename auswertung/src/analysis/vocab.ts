@@ -1,7 +1,7 @@
 // Alle Vokabeln der aktuellen Listen und die Bereiche, für die ausgewertet wird.
 
 import { buildCards } from "./app-logic";
-import type { Card, VocabList } from "./types";
+import type { Card, VocabItem, VocabList } from "./types";
 
 /** Die Super-Liste mischt alle Listen dieses Fachs (wie in js/app.js). */
 export const MIX_SUBJECT = "Englisch";
@@ -12,12 +12,21 @@ export const vocabId = (listId: string, key: string): string => `${listId}|${key
 export interface Vocab {
   id: string;
   list: VocabList;
+  /** der Eintrag aus der Listendatei, z. B. für die Varianten in `auch` */
+  item: VocabItem;
   card: Card;
 }
 
+/** Alle Vokabeln; erlaubt sind wie in der App auch Lösungen aus anderen Listen desselben Fachs. */
 export function catalog(lists: VocabList[]): Vocab[] {
   return lists.flatMap((list) =>
-    buildCards(list).map((card) => ({ id: vocabId(list.id, card.key), list, card })),
+    // buildCards macht aus jedem Item genau eine Karte, in derselben Reihenfolge
+    buildCards(list, lists).map((card, index) => ({
+      id: vocabId(list.id, card.key),
+      list,
+      item: list.items[index],
+      card,
+    })),
   );
 }
 

@@ -2,6 +2,8 @@
 
 export interface VocabItem {
   en: string;
+  /** weitere richtige Schreibweisen, z. B. „there is“ zu „there's“ */
+  auch?: string[];
   de: string[];
 }
 

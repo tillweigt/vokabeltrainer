@@ -49,24 +49,52 @@ export function isCorrect(input, answers) {
   return given !== "" && answers.some((answer) => normalize(answer) === given);
 }
 
+/** Alle richtigen Schreibweisen einer Vokabel: `en` und die Varianten aus `auch` („there is“). */
+function spellingsOf(item) {
+  return [item.en, ...(item.auch ?? [])];
+}
+
+/** Entfernt doppelte Antworten; „I’m“ und „I'm“ gelten dabei als gleich (siehe normalize). */
+function withoutDuplicates(answers) {
+  const seen = new Set();
+  return answers.filter((answer) => {
+    const form = normalize(answer);
+    if (seen.has(form)) return false;
+    seen.add(form);
+    return true;
+  });
+}
+
 /**
  * Macht aus einer Vokabelliste Karten für die Richtung Deutsch → Englisch.
  *
- * Mehrere englische Einträge können dieselbe deutsche Bedeutung haben
- * („I'm …“ und „My name is …“ → „Ich heiße …“). Deshalb zählt jedes Englisch
- * derselben Liste, dessen deutsche Varianten sich mit denen der Frage überschneiden.
- * Die eigene Lösung steht immer an erster Stelle.
+ * Richtig ist die eigene Lösung `en` und jede Variante aus `auch` („there's“ oder „there is“).
+ * Mehrere englische Einträge können dieselbe deutsche Bedeutung haben („I'm …“ und
+ * „My name is …“ → „Ich heiße …“, „little“ und „small“ → „klein“). Deshalb zählt auch jede
+ * Vokabel aus allen Listen desselben Fachs, deren deutsche Varianten sich mit denen der Frage
+ * überschneiden, mit ihren Varianten. `allLists` sind alle geladenen Listen; Listen anderer
+ * Fächer zählen nicht.
+ *
+ * Reihenfolge der Antworten: eigene Lösung, eigene Varianten, dieselbe Liste, andere Listen,
+ * ohne Doppelte. Die eigene Lösung steht immer an erster Stelle.
  */
-export function buildCards(list) {
+export function buildCards(list, allLists = [list]) {
+  const otherLists = allLists.filter((other) => other.fach === list.fach && other.id !== list.id);
+  const sources = [list, ...otherLists];
   return list.items.map((item) => {
-    const alternatives = list.items
-      .filter((other) => other !== item && other.de.some((de) => item.de.includes(de)))
-      .map((other) => other.en);
+    const answers = spellingsOf(item);
+    for (const source of sources) {
+      for (const other of source.items) {
+        if (other !== item && other.de.some((de) => item.de.includes(de))) {
+          answers.push(...spellingsOf(other));
+        }
+      }
+    }
     return {
       listId: list.id,
       key: item.en,
       frage: item.de.join(" / "),
-      antworten: [item.en, ...alternatives],
+      antworten: withoutDuplicates(answers),
     };
   });
 }

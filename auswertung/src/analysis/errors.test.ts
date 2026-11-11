@@ -13,6 +13,7 @@ import {
 } from "./errors";
 import { replay } from "./replay";
 import { answer, backfilled, LISTS, seededRandom } from "./testdata";
+import type { VocabList } from "./types";
 import { catalog } from "./vocab";
 
 const vocab = catalog(LISTS);
@@ -168,5 +169,67 @@ describe("Nochmal ansehen", () => {
       ["cupboard", "wardrobe", 2],
       ["bed", "bad", 1],
     ]);
+  });
+});
+
+describe("Listen desselben Fachs und Varianten aus „auch“", () => {
+  // Erfunden: „small“ kam erst mit einer späteren Liste dazu
+  const OLD: VocabList = {
+    id: "alt",
+    titel: "Alt",
+    fach: "Englisch",
+    typ: "vokabel",
+    items: [
+      { en: "little", de: ["klein"] },
+      { en: "to listen to", auch: ["to listen"], de: ["zuhören"] },
+    ],
+  };
+  const NEW: VocabList = { id: "neu", titel: "Neu", fach: "Englisch", typ: "vokabel", items: [{ en: "small", de: ["klein"] }] };
+  const FRENCH: VocabList = {
+    id: "fr",
+    titel: "Französisch",
+    fach: "Französisch",
+    typ: "vokabel",
+    items: [{ en: "petit", de: ["klein"] }],
+  };
+  const all = catalog([OLD, NEW, FRENCH]);
+  const index = solutionIndex(all);
+  const cardOf = (id: string) => {
+    const found = all.find((v) => v.id === id);
+    if (!found) throw new Error(`Keine Vokabel ${id}`);
+    return found.card;
+  };
+
+  test.each<[string, string, ErrorKind]>([
+    ["small", "alt|little", "jetztRichtig"], // damals falsch, heute erlaubt
+    ["to listen", "alt|to listen to", "jetztRichtig"], // Variante aus „auch“
+    ["Small", "alt|little", "kleinigkeit"], // nach heutiger Regel nur eine Kleinigkeit
+    ["petit", "alt|little", "verwechslung"], // anderes Fach zählt nicht als richtig
+  ])("„%s“ für %s → %s", (typed, id, kind) => {
+    expect(classify(typed, cardOf(id), index).kind).toBe(kind);
+  });
+
+  test("auch eine Variante einer anderen Vokabel ist eine Verwechslung", () => {
+    // „listen“ ist nur über „auch“ („to listen“) die Lösung von „to listen to“
+    const result = classify("listen", cardOf("neu|small"), index);
+    expect(result.kind).toBe("verwechslung");
+    expect(result.confusedWith?.card.key).toBe("to listen to");
+  });
+
+  test("„jetzt richtig“ zählt nicht als lockere Bewertung und nicht für „Nochmal ansehen“", () => {
+    const wrong = (second: number, getippt: string) =>
+      answer(`2026-11-01 11:00:0${second}`, "alt", "little", false, { getippt });
+    const errors = classifyErrors(
+      replay([wrong(1, "small"), wrong(2, "small"), wrong(3, "small"), wrong(4, "little."), wrong(5, "Little")]),
+      all,
+    );
+    const summary = summarizeErrors(errors);
+    expect(summary.counts.jetztRichtig).toBe(3);
+    expect(summary.lenient).toBe(2);
+    // Ohne die drei „jetzt richtig“ sind 2 von 2 Fehlern Kleinigkeiten: Hinweis mit 2 Fehlern
+    const { solutions: hints } = reviewHints(errors);
+    expect(hints).toHaveLength(1);
+    expect(hints[0]).toMatchObject({ lenient: 2, total: 2 });
+    expect(hints[0].examples).toEqual(["little.", "Little"]);
   });
 });

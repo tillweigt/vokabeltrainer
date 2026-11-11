@@ -42,11 +42,13 @@ make test
 
 **Unit-Tests** (`make unit`, dahinter `node --test tests/*.test.js`) prüfen die reine Logik in `js/logic.js`: Bewertung, Durchgänge, Verlauf, Gewicht und Ziehen der Portionen. Sie brauchen nur Node, keine Pakete. Der Zufall ist in den Tests über einen festen Startwert festgelegt, sie laufen also immer gleich.
 
-**E2E-Tests** (`make e2e`, dahinter `uv run --with pytest-playwright pytest tests/e2e`) starten einen eigenen Server, öffnen Chromium mit iPhone-Display und spielen die App durch. Einmalig vorher (fragt nach dem sudo-Passwort):
+**E2E-Tests** (`make e2e`, dahinter `uv run --with pytest-playwright --with playwright==1.64.1 pytest tests/e2e`) starten einen eigenen Server, öffnen Chromium mit iPhone-Display und spielen die App durch. Die Playwright-Version ist im Makefile festgelegt (`PLAYWRIGHT`), weil jede Version einen bestimmten Chromium-Build erwartet; ohne feste Version holt `uv` die neueste, und die findet ihren Browser nicht. Einmalig vorher (fragt nach dem sudo-Passwort):
 
 ```bash
-uv run --with pytest-playwright playwright install --with-deps chromium
+uv run --with playwright==1.64.1 playwright install --with-deps chromium
 ```
+
+Beim Erhöhen der Version im Makefile den Browser einmal neu laden (ohne sudo): `uv run --with playwright==<neu> playwright install chromium`.
 
 Mit `make e2e ARGS="--headed --slowmo 300"` kann man zusehen.
 
@@ -54,9 +56,29 @@ Mit `make e2e ARGS="--headed --slowmo 300"` kann man zusehen.
 
 ## Neue Vokabelliste
 
-1. Datei `lists/<id>.json` anlegen, Aufbau wie in `lists/en-pick-up-a.json`.
+1. Datei `lists/<id>.json` anlegen, Aufbau wie in `lists/en-pick-up-a.json` (siehe unten).
 2. Die `<id>` in `lists/index.json` eintragen.
 3. Lokal ausprobieren, Tests laufen lassen, committen, pushen.
+
+```json
+{
+  "id": "en-unit-1-teil-2",
+  "titel": "Unit 1 – Teil 2 (S. 191–192)",
+  "fach": "Englisch",
+  "typ": "vokabel",
+  "durchlauf": 1,
+  "items": [
+    { "en": "small", "de": ["klein"] },
+    { "en": "there's", "auch": ["there is"], "de": ["es gibt"] }
+  ]
+}
+```
+
+- `en`: die Lösung. Daran hängen Verlauf, Punkte und Sterne, und 🔊 liest sie vor.
+- `auch` (optional): weitere richtige Schreibweisen, z. B. für „there's (= there is)“ oder „to listen (to)“ im Buch.
+- `de`: alle deutschen Bedeutungen, jede als eigener Eintrag. Die Frage zeigt sie mit „ / “ getrennt.
+
+**Bewertung:** streng, Groß- und Kleinschreibung und Satzzeichen zählen. Ausgeglichen werden nur der iPhone-Apostroph (`’`), überflüssige Leerzeichen und der Platzhalter „…“. Richtig ist die Lösung, jede Variante aus `auch` und jede Lösung einer Vokabel mit gleicher deutscher Bedeutung aus **allen Listen desselben Fachs** (z. B. „klein“ → `little` oder `small`), in der einzelnen Liste wie in der Super-Liste. Eine Lösung reicht; danach zeigt die App „Auch richtig: …“ mit den übrigen. Sterne und Verlauf gehen an die gefragte Vokabel.
 
 ## Fortschritt zurücksetzen
 
@@ -112,7 +134,7 @@ Jede Antwort, jede komplett geschaffte Liste (🏆) und jede Einlösung wird als
 - **Datenprüfung:** Ergibt das zusammengeführte Protokoll genau den Verlauf jeder Vokabel und den Kontostand der App? Sonst fehlen Dateien.
 - **Nutzung:** Zeitstrahl der letzten 14 Tage (bis zur letzten Antwort) und Durchschnitte über die ganze Zeit. Eine Einheit endet nach 10 Minuten ohne Antwort.
 - **Können:** pro Vokabel geschätzt aus den letzten 5 Antworten, `(R + 1) / (n + 2)` wie das Gewicht der Super-Liste; Stufen sitzt (ab 80 %), meistens, wackelt, noch nicht (unter 40 %), nie gefragt. Verteilung pro Liste, Zeitverlauf und Tabelle aller Vokabeln.
-- **Fehler:** jede falsche Antwort eingeordnet (Kleinigkeit, Kurzform, „to“, Verwechslung, Tippfehler, falsch), Problemvokabeln mit dem Getippten und Hinweise, wo eine weitere Lösung oder eine klarere Frage helfen könnte.
+- **Fehler:** jede falsche Antwort eingeordnet (jetzt richtig, Kleinigkeit, Kurzform, „to“, Verwechslung, Tippfehler, falsch), Problemvokabeln mit dem Getippten und Hinweise, wo eine weitere Lösung oder eine klarere Frage helfen könnte. „Jetzt richtig“ heißt: damals falsch, nach den heutigen Listen erlaubt (z. B. eine Lösung aus einer später dazugekommenen Liste).
 - **App überprüfen:** Wie viele Antworten bis „sitzt“, Rückfälle danach, und ob die Super-Liste schwere Vokabeln wirklich öfter fragt.
 - **Sterne:** Kontostand im Zeitverlauf, verdient pro Woche, Sterne pro Übungsminute und pro richtiger Antwort.
 

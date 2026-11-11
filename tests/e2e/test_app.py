@@ -208,6 +208,89 @@ def test_mehrdeutigkeit_zeigt_alternativen(page: Page, mini_list):
     expect(page.locator("#feedback .also")).to_have_text("Auch richtig: My name is …")
 
 
+def test_auch_richtig_nach_richtiger_antwort(page: Page, mini_list):
+    open_list(page, "Testliste")
+    advance_to(page, mini_list, "I'm …")
+    answer(page, "I'm")
+    expect(page.locator("#feedback strong")).to_contain_text("Richtig!")
+    # nur die übrigen Lösungen, nicht die getippte
+    expect(page.locator("#feedback .also")).to_have_text("Auch richtig: My name is …")
+
+
+def test_ohne_weitere_loesung_kein_auch_richtig(page: Page, mini_list):
+    open_list(page, "Testliste")
+    advance_to(page, mini_list, "boy")
+    answer(page, "boy")
+    expect(page.locator("#feedback strong")).to_contain_text("Richtig!")
+    expect(page.locator("#feedback .also")).to_have_count(0)
+
+
+# ---------- Mehrdeutigkeit über Listen und Varianten aus „auch“ ----------
+
+
+@pytest.mark.parametrize(
+    ("title", "list_id", "asked", "typed", "other"),
+    [
+        ("Liste eins", "test-eins", "boy", "lad", "test-zwei"),
+        ("Liste zwei", "test-zwei", "lad", "boy", "test-eins"),
+    ],
+)
+def test_loesung_aus_anderer_liste_desselben_fachs(page: Page, two_lists, title, list_id, asked, typed, other):
+    open_list(page, title)
+    advance_to(page, two_lists[list_id], asked)
+    answer(page, typed)
+    expect(page.locator("#feedback strong")).to_contain_text("Richtig!")
+    expect(page.locator("#feedback .also")).to_have_text(f"Auch richtig: {asked}")
+    expect(page.locator("#dots")).to_have_text("●○○")
+    # Verlauf zählt für die gefragte Vokabel, nicht für die getippte
+    assert history(page, list_id)[asked] == "R"
+    assert history(page, other) == {}
+
+
+def test_falsche_antwort_zeigt_loesungen_aus_anderen_listen(page: Page, two_lists):
+    open_list(page, "Liste eins")
+    advance_to(page, two_lists["test-eins"], "boy")
+    answer(page, "falsch")
+    expect(page.locator("#feedback .solution")).to_have_text("boy")
+    expect(page.locator("#feedback .also")).to_have_text("Auch richtig: lad")
+
+
+def test_andere_faecher_zaehlen_nicht(page: Page, two_lists):
+    open_list(page, "Liste eins")
+    advance_to(page, two_lists["test-eins"], "small")
+    answer(page, "petit")  # gleiche Bedeutung „klein“, aber Fach Französisch
+    expect(page.locator("#feedback")).to_contain_text("Leider falsch")
+    expect(page.locator("#feedback .solution")).to_have_text("small")
+    expect(page.locator("#feedback .also")).to_have_count(0)
+
+
+def test_variante_aus_auch_wird_akzeptiert(page: Page, two_lists, spoken):
+    open_list(page, "Liste zwei")
+    advance_to(page, two_lists["test-zwei"], "there's")
+    answer(page, "there is")
+    expect(page.locator("#feedback strong")).to_contain_text("Richtig!")
+    expect(page.locator("#feedback .also")).to_have_text("Auch richtig: there's")
+    page.click(".speak-button")
+    assert spoken()[-1] == {"text": "there's", "lang": "en-GB"}  # vorgelesen wird die eigene Lösung
+    expect(page.locator("#answer")).to_be_focused()
+
+
+def test_super_liste_ueber_listen(page: Page, two_lists):
+    page.goto("/")
+    expect(page.locator(".mix-button .list-progress")).to_have_text(
+        "4 Vokabeln aus 2 Listen · immer 5 Karten"  # das andere Fach ist nicht dabei
+    )
+    open_mix(page)
+    expect(page.locator("#quiz-status")).to_have_text("Karte 1 von 4")
+    # solution_for nimmt bei „Junge“ beide Male die erste Lösung („boy“), auch für „lad“
+    both = {"items": two_lists["test-eins"]["items"] + two_lists["test-zwei"]["items"]}
+    for _ in range(4):
+        answer_correctly_and_continue(page, both)
+    expect(page.locator("#mix-result")).to_have_text("4 von 4 richtig")
+    assert history(page, "test-zwei")["lad"] == "R"
+    assert history(page, "test-eins")["boy"] == "R"
+
+
 def test_falsche_karte_kommt_erst_im_naechsten_durchgang(page: Page, mini_list):
     open_list(page, "Testliste")
     first = question(page)
@@ -315,7 +398,7 @@ def test_super_liste_ganz_oben(page: Page):
     expect(first).to_have_class("list-button mix-button")
     expect(first.locator(".list-title")).to_have_text("🔀 Alle Englisch-Vokabeln")
     expect(first.locator(".list-progress")).to_have_text(
-        "53 Vokabeln aus 2 Listen · immer 5 Karten"
+        "111 Vokabeln aus 3 Listen · immer 5 Karten"
     )
 
 
