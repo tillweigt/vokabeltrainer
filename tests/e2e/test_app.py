@@ -37,7 +37,9 @@ def answer_correctly_and_continue(page: Page, data: dict) -> None:
     expect(page.locator("#feedback")).to_contain_text("Richtig")
     page.press("#answer", "Enter")
     # Weiter hat geklappt: neue Karte zur Eingabe, „Liste geschafft“ oder Ergebnis der Portion
-    expect(page.locator("#submit:text('Prüfen'), #done:visible, #mix-done:visible")).to_have_count(1)
+    expect(
+        page.locator("#submit:text('Prüfen'), #done:visible, #mix-done:visible, #test-done:visible")
+    ).to_have_count(1)
 
 
 def open_list(page: Page, title: str) -> None:
@@ -49,6 +51,12 @@ def open_list(page: Page, title: str) -> None:
 def open_mix(page: Page) -> None:
     page.goto("/")
     page.locator(".mix-button").click()
+    expect(page.locator("#quiz")).to_be_visible()
+
+
+def open_test(page: Page, list_id: str) -> None:
+    page.goto("/")
+    page.locator(f".test-button[data-list='{list_id}']").click()
     expect(page.locator("#quiz")).to_be_visible()
 
 
@@ -519,6 +527,155 @@ def test_portion_verworfen_nach_antwort_in_liste(page: Page, mini_list):
     )
     page.locator(".mix-button").click()
     expect(page.locator("#quiz-status")).to_have_text("Karte 1 von 4")
+
+
+# ---------- Test: alle Vokabeln einer Liste einmal ----------
+
+
+def play_test(page: Page, data: dict, wrong: tuple = ()) -> list:
+    """Beantwortet alle restlichen Karten, die in `wrong` falsch. Ergebnis: gefragte Vokabeln."""
+    asked = []
+    while page.locator("#quiz").is_visible():
+        en = solution_for(page, data)
+        asked.append(en)
+        if en in wrong:
+            answer(page, "falsch")
+            expect(page.locator("#feedback")).to_contain_text("Leider falsch")
+            page.press("#answer", "Enter")
+        else:
+            answer_correctly_and_continue(page, data)
+    return asked
+
+
+def test_testknopf_unter_jeder_liste(page: Page, two_lists):
+    page.goto("/")
+    expect(page.locator(".test-button")).to_have_text(
+        ["📝 Alle 2 testen", "📝 Alle 2 testen", "📝 Alle 1 testen"]  # keiner für die Super-Liste
+    )
+
+
+def test_test_fragt_jede_vokabel_einmal_auch_geschaffte(page: Page, mini_list):
+    page.goto("/")
+    page.evaluate("localStorage.setItem('vokabeltrainer:v1:test-mini:1', JSON.stringify({ boy: 3 }))")
+    open_test(page, "test-mini")
+    expect(page.locator("#quiz-status")).to_have_text("Karte 1 von 4")
+    expect(page.locator("#dots")).to_be_hidden()
+    expect(page.locator("#answer")).to_be_focused()  # Tastatur ist offen
+
+    asked = play_test(page, mini_list, wrong=("boy",))
+    assert sorted(asked) == sorted(item["en"] for item in mini_list["items"])
+    expect(page.locator("#test-result")).to_have_text("3 von 4 richtig")
+    expect(page.locator("#test-stars")).to_have_text("+24 ⭐")
+    expect(page.locator("#test-again")).to_be_visible()
+    expect(page.locator("#error-overlay")).to_be_hidden()
+
+    # Zählt für Verlauf, Sterne und Protokoll, aber nicht für Punkte und Runden der Liste
+    log = history(page, "test-mini")
+    assert log.pop("boy") == "F"
+    assert set(log.values()) == {"R"} and len(log) == 3
+    entries = protocol(page)
+    assert [entry["modus"] for entry in entries] == ["test"] * 4
+    assert sum(entry["sterne"] for entry in entries) == 24
+    page.click("#test-back")
+    expect(page.locator("#stars-balance")).to_have_text("⭐ 24 Sterne")
+    button = page.locator(".list-button", has_text="Testliste")
+    expect(button.locator(".level")).to_have_text(["○○○ 3", "●○○ 0", "●●○ 0", "●●● 1"])
+    expect(button.locator(".list-rounds")).to_have_text("🏆 0× komplett geschafft")
+
+
+def test_test_zeigt_rueckmeldung_nach_jeder_antwort(page: Page, mini_list):
+    open_test(page, "test-mini")
+    answer(page, "falsch")
+    expect(page.locator("#feedback")).to_contain_text("Leider falsch")
+    expect(page.locator("#quiz-status")).to_have_text("Karte 1 von 4")  # während der Rückmeldung
+    page.press("#answer", "Enter")
+    expect(page.locator("#quiz-status")).to_have_text("Karte 2 von 4")
+    expect(page.locator("#answer")).to_be_focused()
+
+
+def test_test_fehler_nochmal(page: Page, mini_list):
+    open_test(page, "test-mini")
+    play_test(page, mini_list, wrong=("boy", "What's your name?"))
+    expect(page.locator("#test-result")).to_have_text("2 von 4 richtig")
+
+    page.click("#test-again")
+    expect(page.locator("#quiz-status")).to_have_text("Karte 1 von 2")
+    expect(page.locator("#answer")).to_be_focused()
+    assert sorted(play_test(page, mini_list, wrong=("boy",))) == ["What's your name?", "boy"]
+    expect(page.locator("#test-result")).to_have_text("1 von 2 richtig")
+
+    page.click("#test-again")
+    assert play_test(page, mini_list) == ["boy"]
+    expect(page.locator("#test-result")).to_have_text("1 von 1 richtig")
+    expect(page.locator("#test-again")).to_be_hidden()  # keine Fehler mehr
+
+    # Das gemerkte Ergebnis ist das des ganzen Tests
+    page.click("#test-back")
+    today = date.today()
+    expect(page.locator(".test-last")).to_have_text(
+        f"Letzter Test: 2 von 4 richtig am {today.day}.{today.month}."
+    )
+    expect(page.locator(".test-title")).to_have_text("📝 Alle 4 testen")
+
+
+def test_test_wird_nach_pause_fortgesetzt(page: Page, mini_list):
+    open_test(page, "test-mini")
+    answer(page, "falsch")
+    page.press("#answer", "Enter")
+    answer_correctly_and_continue(page, mini_list)
+
+    page.reload()  # wie App schließen und später wieder öffnen
+    title = page.locator(".test-title")
+    expect(title).to_have_text("📝 Test fortsetzen (3 von 4)")
+    expect(page.locator(".test-last")).to_have_count(0)  # noch kein fertiger Test
+    open_test(page, "test-mini")
+    expect(page.locator("#quiz-status")).to_have_text("Karte 3 von 4")
+    play_test(page, mini_list)
+    expect(page.locator("#test-result")).to_have_text("3 von 4 richtig")  # mit den Antworten vor der Pause
+
+    page.click("#test-again")  # auch „Fehler nochmal“ lässt sich unterbrechen
+    page.reload()
+    expect(title).to_have_text("📝 Fehler fortsetzen (1 von 1)")
+
+
+def test_test_ergebnis_steht_sofort_nach_der_letzten_antwort(page: Page, mini_list):
+    open_test(page, "test-mini")
+    for _ in range(3):
+        answer_correctly_and_continue(page, mini_list)
+    answer(page, solution_for(page, mini_list))
+    page.reload()  # geschlossen, ohne „Weiter“ zu tippen
+    expect(page.locator(".test-title")).to_have_text("📝 Alle 4 testen")
+    expect(page.locator(".test-last")).to_contain_text("Letzter Test: 4 von 4 richtig")
+
+
+def test_test_pro_liste_getrennt(page: Page, two_lists):
+    open_test(page, "test-eins")
+    answer_correctly_and_continue(page, two_lists["test-eins"])
+    page.click("#back")
+    expect(page.locator(".test-title")).to_have_text(
+        ["📝 Test fortsetzen (2 von 2)", "📝 Alle 2 testen", "📝 Alle 1 testen"]
+    )
+
+
+def test_test_laesst_die_portion_der_super_liste_stehen(page: Page, mini_list):
+    open_mix(page)
+    answer_correctly_and_continue(page, mini_list)
+    open_test(page, "test-mini")
+    play_test(page, mini_list)
+    page.click("#test-back")
+    expect(page.locator(".mix-button .list-progress")).to_have_text("weiter bei Karte 2 von 4")
+
+
+def test_test_mit_echten_listen(page: Page):
+    page.goto("/")
+    expect(page.locator(".test-title")).to_have_text(
+        ["📝 Alle 24 testen", "📝 Alle 29 testen", "📝 Alle 58 testen", "📝 Alle 57 testen"]
+    )
+    data = json.loads((ROOT / "lists" / "en-unit-1-teil-3.json").read_text(encoding="utf-8"))
+    open_test(page, "en-unit-1-teil-3")
+    assert len(play_test(page, data)) == 57
+    expect(page.locator("#test-result")).to_have_text("57 von 57 richtig")
+    expect(page.locator("#error-overlay")).to_be_hidden()
 
 
 # ---------- Sterne ----------

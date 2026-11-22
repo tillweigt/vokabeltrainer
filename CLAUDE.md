@@ -36,5 +36,7 @@ Statische Lern-Website (HTML, CSS, Vanilla-JavaScript als ES-Module) für das iP
 - Deutsche Zusätze wörtlich übernehmen, z. B. „Herr (Anrede)“, „ihr/-e (Pl.)“, „Traum-“.
 - Varianten aus dem Buch über das Feld `auch` (weitere richtige Schreibweisen): „there's (= there is)“ → `"en": "there's", "auch": ["there is"]`; „to listen (to)“ → `"en": "to listen to", "auch": ["to listen"]`.
 - Mehrere Formen wie „child, children (pl)“ als zwei Einträge: `child` = „Kind“, `children` = „Kinder“.
+- Jedes `en` kommt in einer Liste nur einmal vor (es ist der Schlüssel für Verlauf und Punkte). Steht ein Wort im Buch zweimal, ein Eintrag mit mehreren Bedeutungen: `you` = „du“, „ihr/Sie“.
+- Ist eine deutsche Frage bei zwei Wörtern derselben Liste gleich und nur durch den Plural zu trennen, „(Pl.)“ ergänzen (`they` = „sie (Pl.)“), nach Rücksprache.
 - Lautschrift, Beispielsätze, Hinweise und Übungsnummern nicht übernehmen. Schreibweise wie im Buch („Mr“ ohne Punkt, „Look!“ mit Satzzeichen).
 - Gleiche deutsche Bedeutungen in Listen desselben Fachs sind erlaubt: Dann gilt jede der Lösungen als richtig (siehe `PLAN.md`, „Stand: Mehrdeutigkeit über Listen und Varianten“). Nach dem Anlegen einer Liste die Überschneidungen prüfen und dem Nutzer nennen.

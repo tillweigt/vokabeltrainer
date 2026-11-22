@@ -4,6 +4,24 @@ Dieses Dokument fasst ein Vorgespräch zusammen. Es dient als Grundlage, um die 
 
 ---
 
+## Stand: Test pro Liste (festgelegt am 22.11.2026)
+
+Ergänzt die Abschnitte „Stand: …“ darunter. Bei Widersprüchen gilt dieser Abschnitt.
+
+- Unter jeder Liste auf der Startseite steht ein kleiner Knopf **„📝 Alle 58 testen“**, dazu das letzte Ergebnis („Letzter Test: 49 von 58 richtig am 22.11.“). Nicht für die Super-Liste.
+- Ein Test fragt **alle** Vokabeln der Liste, auch schon geschaffte, gemischt und **genau einmal**. Oben „Karte 3 von 58“, keine Punkte. Rückmeldung nach jeder Antwort wie sonst.
+- **Zählt:** Verlauf, Sterne (gleiche Formel) und Protokoll mit `modus: "test"`. **Zählt nicht:** Punkte ●○○ und 🏆-Runden der Liste.
+- **Ende:** „49 von 58 richtig“, verdiente Sterne, **„Fehler nochmal“** (nur die falschen Vokabeln, wieder genau einmal; erscheint nur bei Fehlern) und „Zur Übersicht“. Keine Liste der Fehler.
+- „Fehler nochmal“ zählt für Verlauf und Sterne, ändert aber das gemerkte Ergebnis nicht.
+- **Unterbrechen:** Test und „Fehler nochmal“ werden pro Liste gespeichert und fortgesetzt („📝 Test fortsetzen (12 von 58)“). Vokabeln, die es nach einem Update nicht mehr gibt, werden übersprungen. Das Ergebnis steht sofort nach der letzten Antwort fest.
+- Ein Test verwirft die angefangene Portion der Super-Liste nicht.
+- Speicher: `vokabeltrainer:v1:<liste>:test` und `…:testergebnis`, unabhängig von `durchlauf`, Teil der Sicherung.
+- **Auswertung:** Antworten aus dem Test zählen überall mit, nur nicht als Auswahl der Super-Liste („App überprüfen“).
+
+**Liste Unit 1 – Teil 3:** `they` = „sie (Pl.)“ und `their` = „ihr/-e (Pl.)“, abweichend von der Tafel im Buch. Sonst wäre die Frage dieselbe wie bei `she` und `her`, und es gälte immer beides. `you` und `your` sind je ein Eintrag mit zwei Bedeutungen.
+
+---
+
 ## Stand: Mehrdeutigkeit über Listen und Varianten (festgelegt am 11.11.2026)
 
 Ergänzt und ändert die Abschnitte „Stand: …“ darunter (vor allem „Verlauf und Super-Liste“ und „MVP“). Bei Widersprüchen gilt dieser Abschnitt.
@@ -101,7 +119,7 @@ Zweck: Auswertung durch Till (z. B. mit Python am Mac). Die App selbst nutzt das
 | `frage` | angezeigte Frage, z. B. `"Freund / Freundin"` (bei Runde und Einlösung `null`) |
 | `getippt` | eingetippte Antwort, immer (bei Runde und Einlösung `null`) |
 | `richtig` | `true` / `false` (bei Runde und Einlösung `null`) |
-| `modus` | `"liste"` / `"super"` (bei Einlösung `null`) |
+| `modus` | `"liste"` / `"super"` / `"test"` (seit 22.11.2026; bei Einlösung `null`) |
 | `sterne` | Änderung des Kontostands: Antwort `+7` bzw. `0`, Runde `+29` (Bonus), Einlösung `-20`. Summe über die Zeit = Kontostand. |
 | `nachgetragen` | `true` nur bei den einmalig nachgetragenen Altdaten, sonst `false` |
 
@@ -149,6 +167,7 @@ Stufe 1: Sicherung von Hand. Stufe 2 (später): automatisches Hochladen nach Goo
 
 - Knopf „🔊 Anhören“ in der Rückmeldung, **erst nach dem Prüfen** (vorher würde er die Lösung verraten), bei richtigen und falschen Antworten.
 - **Nur auf Knopfdruck**, nie automatisch. Return bleibt „Weiter“.
+- Läuft noch eine Ausgabe, wird sie abgebrochen und die neue startet nach 150 ms (Safari verschluckt sie sonst, WebKit-Fehler 191745). Läuft nichts, startet sie sofort im Tipp, weil iOS sie nur dort erlaubt.
 - **Britisches Englisch** (`en-GB`) über die eingebaute Sprachausgabe des Geräts (Web Speech API): keine Bibliothek, keine Audiodateien, funktioniert offline.
 - Vorgelesen wird immer die eigentliche Lösung der Karte, auch wenn eine erlaubte Alternative getippt wurde. Platzhalter „…“ werden vorher entfernt.
 - Der Knopf nimmt dem Eingabefeld nicht den Fokus, die Tastatur bleibt offen.

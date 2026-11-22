@@ -33,7 +33,7 @@ export interface ProtocolEntry {
   frage: string | null;
   getippt: string | null;
   richtig: boolean | null;
-  modus: "liste" | "super" | null;
+  modus: "liste" | "super" | "test" | null;
   sterne: number | null;
   nachgetragen: boolean;
 }

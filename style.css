@@ -101,6 +101,31 @@ button {
   color: var(--good);
 }
 
+/* Test: kleiner Knopf unter jeder Liste */
+.test-button {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  margin: -2px 0 18px;
+  padding: 8px 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: transparent;
+  color: var(--accent);
+  text-align: left;
+}
+
+.test-title {
+  display: block;
+  font-weight: 600;
+}
+
+.test-last {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
 /* Super-Liste: ganz oben, etwas abgesetzt */
 .mix-button {
   margin-top: 4px;
@@ -338,6 +363,8 @@ button {
 #done-back,
 #mix-again,
 #mix-back,
+#test-again,
+#test-back,
 #redeem-submit,
 #redeem-yes,
 #redeem-no,
@@ -367,6 +394,7 @@ button {
 }
 
 #mix-back,
+#test-back,
 #redeem-no,
 .restore-button,
 #restore-no,
@@ -428,7 +456,8 @@ button {
 /* ---------- Liste geschafft / Portion fertig ---------- */
 
 #done,
-#mix-done {
+#mix-done,
+#test-done {
   padding-top: 40px;
   text-align: center;
 }

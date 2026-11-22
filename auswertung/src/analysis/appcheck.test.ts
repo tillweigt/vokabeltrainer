@@ -42,4 +42,20 @@ describe("Auswahl der Super-Liste im Vergleich zum Zufall", () => {
       sitzt: [0, 0],
     });
   });
+
+  test("Antworten aus dem Test zählen nicht als Auswahl, ändern aber die Stufe", () => {
+    const two = catalog([{ ...LIST_A, items: LIST_A.items.slice(2, 4) }]); // friend, cupboard
+    const played = replay([
+      answer("2026-11-01 11:00:00", "test-a", "friend", false, { modus: "test" }), // zählt nicht, friend ist danach „noch nicht“
+      answer("2026-11-01 11:00:10", "test-a", "cupboard", true), // vorher: nie (1 nie, 1 nochNicht)
+    ]);
+    const factors = Object.fromEntries(selectionFactors(two, played).map((f) => [f.level, [f.asked, f.expected]]));
+    expect(factors).toEqual({
+      nie: [1, 0.5],
+      nochNicht: [0, 0.5],
+      wackelt: [0, 0],
+      meistens: [0, 0],
+      sitzt: [0, 0],
+    });
+  });
 });

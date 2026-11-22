@@ -31,6 +31,14 @@ function write(key, value) {
   }
 }
 
+function remove(key) {
+  try {
+    localStorage.removeItem(key);
+  } catch (error) {
+    console.warn(`${key} konnte nicht gelöscht werden:`, error);
+  }
+}
+
 // Wird „durchlauf“ in der Listendatei erhöht, entsteht ein neuer Schlüssel:
 // Punkte und Runden dieser Liste beginnen wieder bei null.
 function roundKey(list) {
@@ -95,11 +103,32 @@ export function savePortion(portion) {
 }
 
 export function clearPortion() {
-  try {
-    localStorage.removeItem(`${PREFIX}:portion`);
-  } catch (error) {
-    console.warn("Portion konnte nicht gelöscht werden:", error);
-  }
+  remove(`${PREFIX}:portion`);
+}
+
+/** Angefangener Test einer Liste (siehe packTest), oder null */
+export function loadTest(listId) {
+  return read(`${PREFIX}:${listId}:test`, null);
+}
+
+export function saveTest(listId, test) {
+  write(`${PREFIX}:${listId}:test`, test);
+}
+
+export function clearTest(listId) {
+  remove(`${PREFIX}:${listId}:test`);
+}
+
+/** Ergebnis des letzten vollständigen Tests: { date, correct, total } oder null */
+export function loadTestResult(listId) {
+  const result = read(`${PREFIX}:${listId}:testergebnis`, null);
+  const valid =
+    typeof result?.date === "string" && [result.correct, result.total].every(Number.isInteger);
+  return valid ? result : null;
+}
+
+export function saveTestResult(listId, result) {
+  write(`${PREFIX}:${listId}:testergebnis`, result);
 }
 
 // ---------- Datensicherung ----------

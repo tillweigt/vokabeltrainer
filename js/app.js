@@ -4,6 +4,7 @@ import {
   PORTION_SIZE,
   addStars,
   answerEntry,
+  answerTest,
   appendHistory,
   appendToProtocol,
   backfillProtocol,
@@ -21,7 +22,9 @@ import {
   isProtocolNearlyFull,
   lastBackupText,
   lastRedemptions,
+  lastTestText,
   localIsoDate,
+  packTest,
   parseBackup,
   parseRedemption,
   protocolText,
@@ -35,11 +38,17 @@ import {
   roundEntry,
   speechText,
   starsFor,
+  startRetry,
   startRound,
+  startTest,
+  testButtonText,
+  testTotal,
+  unpackTest,
   weight,
 } from "./logic.js";
 import {
   clearPortion,
+  clearTest,
   exportEntries,
   isBackfillDone,
   ledgerFromEntries,
@@ -51,6 +60,8 @@ import {
   loadProtocolSaved,
   loadRounds,
   loadStars,
+  loadTest,
+  loadTestResult,
   markBackfillDone,
   replaceAllEntries,
   saveHistory,
@@ -61,6 +72,8 @@ import {
   saveProtocolSaved,
   saveRounds,
   saveStars,
+  saveTest,
+  saveTestResult,
 } from "./storage.js";
 
 const MIX_SUBJECT = "Englisch"; // die Super-Liste mischt alle Listen dieses Fachs
@@ -74,6 +87,7 @@ const screens = {
   quiz: $("#quiz"),
   done: $("#done"),
   mixDone: $("#mix-done"),
+  testDone: $("#test-done"),
 };
 const form = $("#answer-form");
 const input = $("#answer");
@@ -83,9 +97,10 @@ const redeemInput = $("#redeem-amount");
 
 let lists = []; // alle Vokabellisten aus lists/
 
-// Die laufende Abfrage. Zwei Arten:
+// Die laufende Abfrage. Drei Arten:
 // - mode "list": eine einzelne Liste, siehe startList()
 // - mode "mix":  eine Portion der Super-Liste, siehe startMix()
+// - mode "test": alle Vokabeln einer Liste einmal, siehe openTest()
 let session = null;
 
 let pendingRedemption = null; // Anzahl Sterne, die auf „Ja“ zum Einlösen wartet
@@ -144,7 +159,7 @@ function mixCards() {
   return mixLists().flatMap((list) => cardsFor(list));
 }
 
-/** Jede Antwort landet im Verlauf der Vokabel, egal ob aus Liste oder Super-Liste. */
+/** Jede Antwort landet im Verlauf der Vokabel, egal ob aus Liste, Super-Liste oder Test. */
 function rememberAnswer(card, correct) {
   saveHistory(card.listId, appendHistory(loadHistory(card.listId), card.key, correct));
 }
@@ -231,7 +246,7 @@ function renderStart() {
   for (const subject of subjects) {
     container.append(element("h2", "", subject));
     for (const list of lists.filter((l) => l.fach === subject)) {
-      container.append(renderListButton(list));
+      container.append(renderListButton(list), renderTestButton(list));
     }
   }
 }
@@ -284,6 +299,19 @@ function renderListButton(list) {
   return button;
 }
 
+/** Knopf „📝 Alle 58 testen“ unter einer Liste, dazu das letzte Ergebnis */
+function renderTestButton(list) {
+  const cards = cardsFor(list);
+  const button = element("button", "test-button");
+  button.type = "button";
+  button.dataset.list = list.id;
+  button.append(element("span", "test-title", testButtonText(cards.length, savedTest(list, cards))));
+  const result = loadTestResult(list.id);
+  if (result) button.append(element("span", "test-last", lastTestText(result)));
+  button.addEventListener("click", () => openTest(list));
+  return button;
+}
+
 /** Zeile „○○○ 9   ●○○ 8   ●●○ 5   ●●● 2“: wie viele Karten auf welchem Stand sind */
 function renderLevels(cards, progress) {
   const levels = element("span", "list-levels");
@@ -333,6 +361,40 @@ function startNewMix() {
   startMix();
 }
 
+/** Angefangener Test dieser Liste, oder null */
+function savedTest(list, cards) {
+  return unpackTest(loadTest(list.id), cards);
+}
+
+/** Setzt einen angefangenen Test fort oder beginnt einen neuen mit allen Vokabeln der Liste. */
+function openTest(list) {
+  const cards = cardsFor(list);
+  beginTest(list, savedTest(list, cards) ?? startTest(cards));
+}
+
+function beginTest(list, test) {
+  if (test.queue.length === 0) return;
+  session = { mode: "test", list, ...test };
+  saveTestState();
+  beginQuiz();
+}
+
+/**
+ * Speichert den Stand des Tests (damit es nach einer Pause weitergeht). Nach der letzten Karte
+ * steht sofort das Ergebnis fest, auch wenn die App danach geschlossen wird. „Fehler nochmal“
+ * ändert das gespeicherte Ergebnis nicht.
+ */
+function saveTestState() {
+  const { list, correct, retry } = session;
+  if (session.queue.length > 0) {
+    saveTest(list.id, packTest(session));
+    return;
+  }
+  clearTest(list.id);
+  if (retry) return;
+  saveTestResult(list.id, { date: localIsoDate(new Date()), correct, total: testTotal(session) });
+}
+
 /** Speichert, was von der Portion noch übrig ist (damit es nach einer Pause weitergeht). */
 function saveMixPortion() {
   if (session.queue.length === 0) {
@@ -369,8 +431,9 @@ function updateStatus(card) {
   $("#quiz-balance").textContent = `⭐ ${balance(loadStars())}`;
   const status = $("#quiz-status");
   const dots = $("#dots");
-  if (session.mode === "mix") {
-    status.textContent = `Karte ${session.answered + (session.showingFeedback ? 0 : 1)} von ${session.total}`;
+  if (session.mode !== "list") {
+    const total = session.mode === "mix" ? session.total : testTotal(session);
+    status.textContent = `Karte ${session.answered + (session.showingFeedback ? 0 : 1)} von ${total}`;
     dots.hidden = true;
     return;
   }
@@ -390,12 +453,16 @@ function checkAnswer() {
   earnStars(earned);
   rememberAnswer(card, correct);
   logEntry(answerEntry(card, input.value, correct, session.mode, earned, new Date()));
-  session.queue = session.queue.slice(1); // jede Karte nur einmal pro Durchgang
-  if (session.mode === "list") {
+  if (session.mode === "test") {
+    session = answerTest(session, correct, earned);
+    saveTestState();
+  } else if (session.mode === "list") {
+    session.queue = session.queue.slice(1); // jede Karte nur einmal pro Durchgang
     clearPortion(); // in einer normalen Liste geantwortet: angefangene Portion verwerfen
     session.progress = recordAnswer(session.progress, card, correct);
     saveProgress(session.list, session.progress);
   } else {
+    session.queue = session.queue.slice(1);
     session.answered += 1;
     if (correct) session.correct += 1;
     session.stars += earned;
@@ -445,6 +512,10 @@ function nextCard() {
       showMixDone();
       return;
     }
+    if (session.mode === "test") {
+      showTestDone();
+      return;
+    }
     // Durchgang zu Ende: neuer Durchgang mit allen noch offenen Karten
     session.queue = startRound(session.cards, session.progress);
     if (session.queue.length === 0) {
@@ -486,6 +557,14 @@ function showMixDone() {
   showScreen("mixDone");
 }
 
+function showTestDone() {
+  input.blur();
+  $("#test-result").textContent = `${session.correct} von ${testTotal(session)} richtig`;
+  $("#test-stars").textContent = `+${session.stars} ⭐`;
+  $("#test-again").hidden = session.wrong.length === 0;
+  showScreen("testDone");
+}
+
 function backToStart() {
   input.blur();
   session = null;
@@ -517,6 +596,8 @@ $("#back").addEventListener("click", backToStart);
 $("#done-back").addEventListener("click", backToStart);
 $("#mix-again").addEventListener("click", startNewMix);
 $("#mix-back").addEventListener("click", backToStart);
+$("#test-again").addEventListener("click", () => beginTest(session.list, startRetry(session)));
+$("#test-back").addEventListener("click", backToStart);
 
 // ---------- Ereignisse: Sterne einlösen ----------
 

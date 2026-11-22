@@ -198,6 +198,65 @@ export function restoreQueue(refs, cards) {
     .filter((card) => card !== undefined);
 }
 
+// ---------- Test: alle Vokabeln einer Liste einmal ----------
+
+/** Ein neuer Test: alle Karten, auch schon geschaffte, gemischt, jede genau einmal. */
+export function startTest(cards, random = Math.random) {
+  return { queue: shuffle(cards, random), answered: 0, correct: 0, stars: 0, wrong: [], retry: false };
+}
+
+/** „Fehler nochmal“: nur die Karten, die in `test` falsch waren. */
+export function startRetry(test, random = Math.random) {
+  return { ...startTest(test.wrong, random), retry: true };
+}
+
+/** Der Test nach einer Antwort auf die vorderste Karte. */
+export function answerTest(test, correct, stars) {
+  const [card, ...queue] = test.queue;
+  return {
+    ...test,
+    queue,
+    answered: test.answered + 1,
+    correct: test.correct + (correct ? 1 : 0),
+    stars: test.stars + stars,
+    wrong: correct ? test.wrong : [...test.wrong, card],
+  };
+}
+
+/** Anzahl der Karten im Test, beantwortete und offene */
+export function testTotal(test) {
+  return test.answered + test.queue.length;
+}
+
+/** Was vom Test gespeichert wird, die Karten als { listId, key } */
+export function packTest({ queue, answered, correct, stars, wrong, retry }) {
+  return { queue: queue.map(cardRef), answered, correct, stars, wrong: wrong.map(cardRef), retry };
+}
+
+/** Gespeicherter Test mit den aktuellen Karten, oder null, wenn nichts Brauchbares übrig ist. */
+export function unpackTest(saved, cards) {
+  const valid =
+    Array.isArray(saved?.queue) &&
+    Array.isArray(saved.wrong) &&
+    [saved.answered, saved.correct, saved.stars].every(Number.isInteger) &&
+    typeof saved.retry === "boolean";
+  if (!valid) return null;
+  const queue = restoreQueue(saved.queue, cards);
+  return queue.length > 0 ? { ...saved, queue, wrong: restoreQueue(saved.wrong, cards) } : null;
+}
+
+/** Text auf dem Knopf unter einer Liste; `test` ist ein angefangener Test oder null */
+export function testButtonText(cardCount, test) {
+  if (!test) return `📝 Alle ${cardCount} testen`;
+  const what = test.retry ? "Fehler" : "Test";
+  return `📝 ${what} fortsetzen (${test.answered + 1} von ${testTotal(test)})`;
+}
+
+/** "Letzter Test: 49 von 58 richtig am 22.11." */
+export function lastTestText({ date, correct, total }) {
+  return `Letzter Test: ${correct} von ${total} richtig am ${formatShortDate(date)}`;
+}
+
 // ---------- Sterne ----------
 
 /**
@@ -364,7 +423,7 @@ export const PROTOCOL_LIMIT = 5000;
 /** Ab so vielen Einträgen wird die Anzeige im Eltern-Bereich orange. */
 export const PROTOCOL_WARNING = 4000;
 
-const MODE_NAMES = { list: "liste", mix: "super" };
+const MODE_NAMES = { list: "liste", mix: "super", test: "test" };
 
 // Jeder Eintrag hat immer alle Felder; Unbekanntes ist null.
 const EMPTY_ENTRY = {
@@ -390,7 +449,7 @@ export function localIsoDateTimeWithZone(date) {
   return `${localIsoDateTime(date)}:${seconds}${sign}${hours}:${minutes}`;
 }
 
-/** Eintrag für eine Antwort, `mode` ist "list" oder "mix" */
+/** Eintrag für eine Antwort, `mode` ist "list", "mix" oder "test" */
 export function answerEntry(card, typed, correct, mode, stars, date) {
   return {
     ...EMPTY_ENTRY,

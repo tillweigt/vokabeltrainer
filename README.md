@@ -4,6 +4,7 @@ Eine kleine Website zum Vokabellernen auf dem iPhone. Die deutsche Vokabel wird 
 
 - **Einzelne Liste:** Jede offene Vokabel kommt pro Durchgang einmal. Nach 3× richtig ist sie geschafft. Sind alle geschafft, zählt 🏆 eine Runde, und es geht von vorn los.
 - **🔀 Alle Englisch-Vokabeln:** Portionen zu 5 Karten aus allen Listen. Vokabeln, die zuletzt oft falsch waren, kommen öfter dran. Grundlage ist der Verlauf jeder Vokabel (`R`/`F`), Gewicht `(F + 1) / (n + 2)` über die letzten 5 Antworten. Eine angefangene Portion geht nach einer Pause weiter; wird zwischendurch in einer normalen Liste geantwortet, wird neu gezogen.
+- **📝 Alle testen:** Unter jeder Liste ein Test mit allen Vokabeln, jede genau einmal, gemischt. Zählt für Verlauf und Sterne, aber nicht für die Punkte ●○○ und 🏆 der Liste. Am Ende steht „49 von 58 richtig“, dazu „Fehler nochmal“. Ein angefangener Test geht nach einer Pause weiter.
 - **⭐ Sterne:** Jede richtige Antwort bringt `⌈8 · 2^(−k/3)⌉` Sterne (k = wie oft die Vokabel schon richtig war, also 8, 7, 6, 4, 4, 3, 2, …, mindestens 1). Fehler bringen nichts und kosten nichts. Für eine komplett geschaffte Liste (🏆) gibt es 1 Stern pro Vokabel extra. Auf der Startseite stehen der Kontostand, ein Feld zum Einlösen und die letzten 3 Einlösungen. Die Belohnung gibt es im echten Leben.
 - **🔊 Anhören:** Nach dem Prüfen liest die eingebaute Sprachausgabe des iPhones die Lösung auf britischem Englisch vor, nur auf Knopfdruck. Ist nichts zu hören: Lautstärke und Stummschalter prüfen. Bessere Stimmen gibt es kostenlos unter *Einstellungen → Bedienungshilfen → Gesprochene Inhalte → Stimmen → Englisch*.
 - **Eltern-Bereich (versteckt):** 5× schnell auf die Überschrift „Vokabeltrainer“ tippen. Dort lassen sich die Daten sichern und wiederherstellen, siehe unten.
@@ -121,7 +122,7 @@ Jede Antwort, jede komplett geschaffte Liste (🏆) und jede Einlösung wird als
 ```
 
 - `art`: `"antwort"`, `"runde"` oder `"einloesung"`
-- `modus`: `"liste"` oder `"super"`
+- `modus`: `"liste"`, `"super"` oder `"test"`
 - `sterne`: Änderung des Kontostands (Antwort `+7`/`0`, Runde = Bonus, Einlösung negativ). Die Summe über die Zeit ergibt den Kontostand.
 - `nachgetragen: true`: aus dem alten Verlauf erzeugt (Zeitpunkt 31.10.2026 ab 10:00, ohne getippte Antwort, Modus und Sterne)
 
@@ -163,10 +164,10 @@ df["kontostand"] = df["sterne"].fillna(0).cumsum()  # ab Beginn des Protokolls
 
 | Datei | Inhalt |
 |---|---|
-| `index.html` | Die Bildschirme: Listen, Abfrage, „Liste geschafft“, Ergebnis der Super-Liste |
+| `index.html` | Die Bildschirme: Listen, Abfrage, „Liste geschafft“, Ergebnis der Super-Liste, Ergebnis des Tests |
 | `style.css` | Aussehen, für das iPhone optimiert |
-| `js/logic.js` | Reine Logik: Antworten prüfen, Karten bilden, Durchgänge, Zählen, Verlauf, Gewicht, Portionen, Sterne |
-| `js/storage.js` | Punkte, Runden, Verlauf, Sterne, angefangene Portion und Antwortprotokoll im `localStorage` speichern; alles exportieren und ersetzen für die Datensicherung |
+| `js/logic.js` | Reine Logik: Antworten prüfen, Karten bilden, Durchgänge, Zählen, Verlauf, Gewicht, Portionen, Test, Sterne |
+| `js/storage.js` | Punkte, Runden, Verlauf, Sterne, angefangene Portion, Tests und Antwortprotokoll im `localStorage` speichern; alles exportieren und ersetzen für die Datensicherung |
 | `js/app.js` | Verbindet die Logik mit der Seite (Klicks, Anzeige) |
 | `lists/` | Die Vokabellisten |
 | `tools/serve.py` | Lokaler Entwicklungsserver ohne Browser-Cache |

@@ -7,6 +7,7 @@ import {
   PORTION_SIZE,
   addStars,
   answerEntry,
+  answerTest,
   appendHistory,
   appendToProtocol,
   backfillProtocol,
@@ -34,7 +35,9 @@ import {
   formatShortDate,
   isCorrect,
   lastRedemptions,
+  lastTestText,
   localIsoDate,
+  packTest,
   parseRedemption,
   recordAnswer,
   redeem,
@@ -42,7 +45,12 @@ import {
   roundBonus,
   speechText,
   starsFor,
+  startRetry,
   startRound,
+  startTest,
+  testButtonText,
+  testTotal,
+  unpackTest,
   weight,
 } from "../js/logic.js";
 
@@ -272,6 +280,93 @@ describe("Portion speichern und fortsetzen", () => {
   test("Vokabeln, die es nicht mehr gibt, werden übersprungen", () => {
     const refs = [{ listId: "a", key: "weg" }, cardRef(cards[1])];
     assert.deepEqual(restoreQueue(refs, cards), [cards[1]]);
+  });
+});
+
+describe("Test: alle Vokabeln einer Liste einmal", () => {
+  const cards = buildCards(LIST);
+  const keys = (list) => list.map((card) => card.key).sort();
+  /** Beantwortet die vorderste Karte; richtig ist alles außer den Vokabeln in `wrong` */
+  const answerNext = (state, wrong = []) => {
+    const correct = !wrong.includes(state.queue[0].key);
+    return answerTest(state, correct, correct ? 8 : 0);
+  };
+  const play = (state, wrong = []) => {
+    while (state.queue.length > 0) state = answerNext(state, wrong);
+    return state;
+  };
+
+  test("jede Karte genau einmal, auch schon geschaffte", () => {
+    const state = startTest(cards, seededRandom(1));
+    assert.deepEqual(keys(state.queue), keys(cards));
+    assert.equal(testTotal(state), 3);
+    assert.equal(state.retry, false);
+  });
+
+  test("zählt richtig, falsch und Sterne; die Gesamtzahl bleibt gleich", () => {
+    let state = startTest(cards, seededRandom(1));
+    while (state.queue.length > 0) {
+      state = answerNext(state, ["boy"]);
+      assert.equal(testTotal(state), 3);
+    }
+    assert.equal(state.answered, 3);
+    assert.equal(state.correct, 2);
+    assert.equal(state.stars, 16);
+    assert.deepEqual(keys(state.wrong), ["boy"]);
+  });
+
+  test("ändert den alten Stand nicht", () => {
+    const state = startTest(cards, seededRandom(1));
+    answerTest(state, false, 0);
+    assert.equal(state.queue.length, 3);
+    assert.deepEqual(state.wrong, []);
+  });
+
+  test("Fehler nochmal: nur die falschen, wieder bei null", () => {
+    const first = play(startTest(cards, seededRandom(1)), ["boy", "I'm …"]);
+    const retry = startRetry(first, seededRandom(2));
+    assert.deepEqual(keys(retry.queue), ["I'm …", "boy"]);
+    assert.equal(testTotal(retry), 2);
+    assert.deepEqual([retry.answered, retry.correct, retry.stars, retry.retry], [0, 0, 0, true]);
+    const second = startRetry(play(retry, ["boy"]), seededRandom(3));
+    assert.deepEqual(keys(second.queue), ["boy"]);
+  });
+
+  test("speichern und fortsetzen: gleiche Karten, gleicher Stand", () => {
+    const state = answerNext(startTest(cards, seededRandom(1)), keys(cards)); // erste Karte falsch
+    const saved = JSON.parse(JSON.stringify(packTest({ ...state, mode: "test", list: LIST })));
+    assert.deepEqual(Object.keys(saved).sort(), ["answered", "correct", "queue", "retry", "stars", "wrong"]);
+    assert.deepEqual(saved.queue[0], { listId: "test", key: state.queue[0].key });
+    assert.deepEqual(unpackTest(saved, cards), state);
+  });
+
+  test("Vokabeln, die es nicht mehr gibt, werden übersprungen", () => {
+    const saved = packTest(startTest(cards, seededRandom(1)));
+    const restored = unpackTest(saved, cards.filter((card) => card.key !== "boy"));
+    assert.equal(testTotal(restored), 2);
+    assert.equal(unpackTest(saved, []), null); // nichts mehr übrig: neuer Test
+  });
+
+  test("Unbrauchbares im Speicher gilt als kein Test", () => {
+    const saved = packTest(startTest(cards, seededRandom(1)));
+    for (const broken of [null, {}, [], "x", { ...saved, queue: 3 }, { ...saved, correct: "2" }, { ...saved, wrong: null }]) {
+      assert.equal(unpackTest(broken, cards), null);
+    }
+  });
+
+  test("Text auf dem Knopf", () => {
+    assert.equal(testButtonText(58, null), "📝 Alle 58 testen");
+    const started = answerNext(startTest(cards, seededRandom(1)), ["boy"]);
+    assert.equal(testButtonText(3, started), "📝 Test fortsetzen (2 von 3)");
+    const retry = startRetry(play(started, ["boy", "I'm …", "My name is …"]), seededRandom(1));
+    assert.match(testButtonText(3, retry), /^📝 Fehler fortsetzen \(1 von [23]\)$/);
+  });
+
+  test("letztes Ergebnis", () => {
+    assert.equal(
+      lastTestText({ date: "2026-11-22", correct: 49, total: 58 }),
+      "Letzter Test: 49 von 58 richtig am 22.11.",
+    );
   });
 });
 
