@@ -65,6 +65,7 @@ import {
 
 const MIX_SUBJECT = "Englisch"; // die Super-Liste mischt alle Listen dieses Fachs
 const SPEECH_LANG = "en-GB"; // britisches Englisch, passend zum Schulbuch
+const SPEECH_RESTART_MS = 150; // Pause zwischen Abbrechen und neuer Ausgabe, siehe speak()
 
 const $ = (selector) => document.querySelector(selector);
 
@@ -90,6 +91,7 @@ let session = null;
 let pendingRedemption = null; // Anzahl Sterne, die auf „Ja“ zum Einlösen wartet
 let pendingBackup = null; // eingelesene Sicherung, die auf „Ja, einspielen“ wartet
 let titleTaps = []; // Zeitpunkte der letzten Tipps auf die Überschrift (Geheimzugang)
+let speechTimer = null; // wartende Ausgabe nach einem Abbruch, siehe speak()
 
 // ---------- Hilfsfunktionen ----------
 
@@ -171,12 +173,27 @@ function backfillOnce() {
   markBackfillDone();
 }
 
-/** Liest einen englischen Text mit der eingebauten Sprachausgabe des Geräts vor. */
+/**
+ * Liest einen englischen Text mit der eingebauten Sprachausgabe des Geräts vor.
+ *
+ * Läuft nichts, startet die Ausgabe sofort: iOS erlaubt sie nur direkt im Tipp-Handler.
+ * Läuft noch etwas, wird es abgebrochen und kurz gewartet, denn in Safari wirkt cancel()
+ * verzögert und verschluckt sonst die neue Ausgabe (WebKit-Fehler 191745).
+ */
 function speak(text) {
-  speechSynthesis.cancel(); // eine noch laufende Ausgabe abbrechen, damit sich nichts stapelt
   const utterance = new SpeechSynthesisUtterance(speechText(text));
   utterance.lang = SPEECH_LANG;
-  speechSynthesis.speak(utterance);
+  clearTimeout(speechTimer); // bei mehrfachem Tippen zählt nur das letzte
+  if (speechSynthesis.paused) speechSynthesis.resume(); // z. B. nach einem Wechsel der App
+  if (!speechSynthesis.speaking && !speechSynthesis.pending && speechTimer === null) {
+    speechSynthesis.speak(utterance);
+    return;
+  }
+  speechSynthesis.cancel();
+  speechTimer = setTimeout(() => {
+    speechTimer = null;
+    speechSynthesis.speak(utterance);
+  }, SPEECH_RESTART_MS);
 }
 
 /** Knopf „🔊 Anhören“, oder null, wenn das Gerät keine Sprachausgabe hat */

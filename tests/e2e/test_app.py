@@ -398,7 +398,7 @@ def test_super_liste_ganz_oben(page: Page):
     expect(first).to_have_class("list-button mix-button")
     expect(first.locator(".list-title")).to_have_text("🔀 Alle Englisch-Vokabeln")
     expect(first.locator(".list-progress")).to_have_text(
-        "111 Vokabeln aus 3 Listen · immer 5 Karten"
+        "168 Vokabeln aus 4 Listen · immer 5 Karten"
     )
 
 
@@ -409,11 +409,11 @@ def test_super_liste_mit_echten_listen(page: Page):
     expect(page.locator("#dots")).to_be_hidden()
     expect(page.locator("#answer")).to_be_focused()
 
-    asked = []
+    # Keine Vokabel doppelt. Nicht über den Fragetext: „klein“ oder „sie“ fragt nach zwei Vokabeln.
+    portion = page.evaluate("JSON.parse(localStorage.getItem('vokabeltrainer:v1:portion')).refs")
+    assert len({(ref["listId"], ref["key"]) for ref in portion}) == 5
     for _ in range(5):
-        asked.append(question(page))
         answer_correctly_and_continue(page, data)
-    assert len(set(asked)) == 5  # keine Vokabel doppelt
     expect(page.locator("#mix-result")).to_have_text("5 von 5 richtig")
     expect(page.locator("#mix-stars")).to_have_text("+40 ⭐")  # 5 neue Vokabeln à 8
     expect(page.locator("#error-overlay")).to_be_hidden()
@@ -653,6 +653,92 @@ def test_vorlesen_liest_die_eigene_loesung(page: Page, mini_list, spoken):
     expect(page.locator("#feedback")).to_contain_text("Richtig")
     page.click(".speak-button")
     assert spoken()[-1] == {"text": "I'm", "lang": "en-GB"}
+
+
+@pytest.fixture
+def safari_speech(page: Page):
+    """Attrappe mit der Eigenheit von Safari (WebKit-Fehler 191745, behoben im März 2026).
+
+    cancel() wirkt dort verzögert: Was direkt nach dem Abbrechen einer laufenden Ausgabe
+    gestartet wird, geht verloren. Eine Ausgabe läuft hier, bis `__finish()` sie beendet.
+    """
+    page.add_init_script(
+        """
+        window.__spoken = [];
+        window.__cancels = 0;
+        window.__resumes = 0;
+        let current = null;
+        let cancelling = false;
+        let paused = false;
+        window.__finish = () => { current = null; };
+        window.__pause = () => { paused = true; };
+        Object.defineProperty(window, "speechSynthesis", {
+          configurable: true,
+          value: {
+            get speaking() { return current !== null; },
+            get pending() { return false; },
+            get paused() { return paused; },
+            speak: (utterance) => {
+              if (cancelling) return; // geht verloren, wie in Safari
+              current = utterance;
+              window.__spoken.push(utterance.text);
+            },
+            cancel: () => {
+              window.__cancels += 1;
+              if (current === null) return;
+              current = null;
+              cancelling = true;
+              setTimeout(() => { cancelling = false; }, 30);
+            },
+            resume: () => { window.__resumes += 1; paused = false; },
+          },
+        });
+        """
+    )
+
+
+def test_vorlesen_startet_sofort_im_tipp(page: Page, mini_list, safari_speech):
+    """iOS erlaubt Sprache nur direkt im Tipp, also ohne Umweg über setTimeout."""
+    open_list(page, "Testliste")
+    advance_to(page, mini_list, "boy")
+    answer(page, "boy")
+    spoken_in_handler = page.evaluate(
+        "() => { document.querySelector('.speak-button').click(); return [...window.__spoken]; }"
+    )
+    assert spoken_in_handler == ["boy"]
+    assert page.evaluate("window.__cancels") == 0  # läuft nichts, gibt es nichts abzubrechen
+
+
+def test_vorlesen_nochmal_tippen_waehrend_es_laeuft(page: Page, mini_list, safari_speech):
+    open_list(page, "Testliste")
+    advance_to(page, mini_list, "boy")
+    answer(page, "boy")
+    page.click(".speak-button")
+    page.click(".speak-button")  # die erste Ausgabe läuft noch
+    page.wait_for_function("window.__spoken.length === 2", timeout=2000)
+    expect(page.locator("#answer")).to_be_focused()  # Tastatur bleibt offen
+
+
+def test_vorlesen_mehrfach_tippen_stapelt_nicht(page: Page, mini_list, safari_speech):
+    open_list(page, "Testliste")
+    advance_to(page, mini_list, "boy")
+    answer(page, "boy")
+    page.evaluate(
+        "() => { const b = document.querySelector('.speak-button'); for (let i = 0; i < 4; i++) b.click(); }"
+    )
+    page.wait_for_function("window.__spoken.length === 2", timeout=2000)
+    page.wait_for_timeout(500)
+    assert page.evaluate("window.__spoken") == ["boy", "boy"]  # die erste und die letzte
+
+
+def test_vorlesen_nach_pause_des_geraets(page: Page, mini_list, safari_speech):
+    """Nach dem Wechsel in den Hintergrund kann die Sprachausgabe angehalten sein."""
+    open_list(page, "Testliste")
+    advance_to(page, mini_list, "boy")
+    answer(page, "boy")
+    page.evaluate("window.__pause()")
+    page.click(".speak-button")
+    assert page.evaluate("[window.__spoken, window.__resumes]") == [["boy"], 1]
 
 
 # ---------- Eltern-Bereich: Sichern und Wiederherstellen ----------
