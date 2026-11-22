@@ -678,6 +678,147 @@ def test_test_mit_echten_listen(page: Page):
     expect(page.locator("#error-overlay")).to_be_hidden()
 
 
+# ---------- Ansehen: alle Vokabeln einer Liste mit Übersetzung ----------
+
+COVERED = "rgba(0, 0, 0, 0)"  # durchsichtige Schrift
+
+
+def open_view(page: Page, list_id: str) -> None:
+    page.goto("/")
+    page.locator(f".view-button[data-list='{list_id}']").click()
+    expect(page.locator("#view")).to_be_visible()
+
+
+def test_ansehen_zeigt_alle_vokabeln(page: Page, two_lists):
+    open_view(page, "test-zwei")
+    expect(page.locator("#start")).to_be_hidden()
+    expect(page.locator("#view-title")).to_have_text("Liste zwei")
+    expect(page.locator(".view-en")).to_have_text(["lad", "there's / there is"])
+    expect(page.locator(".view-de")).to_have_text(["Junge", "es gibt"])
+    expect(page.locator("#error-overlay")).to_be_hidden()
+
+
+def test_ansehen_knopf_unter_jeder_liste(page: Page, two_lists):
+    page.goto("/")
+    expect(page.locator(".view-button")).to_have_text(["📖 Ansehen"] * 3)  # keiner für die Super-Liste
+
+
+@pytest.mark.parametrize("width", [320, 375, 428])  # iPhone SE, 12 mini, 13 Pro Max
+def test_ansehen_echte_listen_passen_in_die_breite(page: Page, width):
+    page.set_viewport_size({"width": width, "height": 629})
+    page.goto("/")
+    ids = json.loads((ROOT / "lists" / "index.json").read_text(encoding="utf-8"))
+    for list_id in ids:
+        data = json.loads((ROOT / "lists" / f"{list_id}.json").read_text(encoding="utf-8"))
+        open_view(page, list_id)
+        assert page.locator(".view-en").all_inner_texts() == [
+            " / ".join([item["en"], *item.get("auch", [])]) for item in data["items"]
+        ]
+        assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+        overflowing = page.evaluate(
+            "[...document.querySelectorAll('.view-en, .view-de')]"
+            ".filter((cell) => cell.scrollWidth > cell.clientWidth + 1).map((cell) => cell.textContent)"
+        )
+        assert overflowing == []
+
+
+def test_ansehen_bricht_nach_dem_schraegstrich_um(page: Page):
+    page.set_viewport_size({"width": 320, "height": 629})
+    open_view(page, "en-unit-1-teil-3")
+    cell = page.locator(".view-de", has_text="hundert/einhundert")
+    assert cell.inner_html() == "hundert/<wbr>einhundert"
+    # Ein Wort bricht nicht mitten durch: genau zwei Zeilen
+    lines = cell.evaluate(
+        "(cell) => { const r = document.createRange(); r.selectNodeContents(cell);"
+        " return new Set([...r.getClientRects()].map((rect) => Math.round(rect.top))).size; }"
+    )
+    assert lines == 2
+
+
+def test_ansehen_zurueck_ist_beim_scrollen_immer_da(page: Page):
+    page.goto("/")
+    button = page.locator(".view-button[data-list='en-unit-1-teil-2']")
+    button.scroll_into_view_if_needed()
+    before = page.evaluate("window.scrollY")
+    assert before > 0
+    button.click()
+    assert page.evaluate("window.scrollY") == 0  # die Liste beginnt oben
+
+    page.evaluate("window.scrollTo(0, 1000)")
+    expect(page.locator("#view-back")).to_be_in_viewport(ratio=1)
+    page.click("#view-back")
+    expect(page.locator("#view")).to_be_hidden()
+    expect(page.locator("#start")).to_be_visible()
+    assert page.evaluate("window.scrollY") == before  # wieder bei derselben Unit
+    expect(button).to_be_in_viewport()
+
+
+def test_ansehen_zurueck_am_ende_der_liste(page: Page):
+    open_view(page, "en-unit-1-teil-3")
+    page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+    expect(page.locator(".view-row").last).to_be_in_viewport()
+    page.click("#view-end")
+    expect(page.locator("#start")).to_be_visible()
+
+
+def test_ansehen_tippen_liest_vor(page: Page, two_lists, spoken):
+    open_view(page, "test-zwei")
+    assert spoken() == []
+    page.locator(".view-row").nth(1).click()
+    assert spoken() == [{"text": "there's", "lang": "en-GB"}]  # die eigene Lösung, ohne Varianten
+
+
+def test_ansehen_englisch_verdecken(page: Page, two_lists, spoken):
+    open_view(page, "test-zwei")
+    english = page.locator(".view-en")
+    cover = page.locator("#view-cover")
+    expect(cover).to_have_text("Englisch verdecken")
+    cover.click()
+    expect(cover).to_have_text("Englisch zeigen")
+    expect(english.nth(0)).to_have_css("color", COVERED)
+    expect(english.nth(1)).to_have_css("color", COVERED)
+    expect(page.locator(".view-de").nth(0)).not_to_have_css("color", COVERED)
+
+    # Erster Tipp deckt nur diese Zeile auf, der zweite liest vor
+    row = page.locator(".view-row").nth(0)
+    row.click()
+    expect(english.nth(0)).not_to_have_css("color", COVERED)
+    expect(english.nth(1)).to_have_css("color", COVERED)
+    assert spoken() == []
+    row.click()
+    assert spoken() == [{"text": "lad", "lang": "en-GB"}]
+
+    cover.click()  # alles zeigen
+    expect(english.nth(1)).not_to_have_css("color", COVERED)
+    cover.click()  # wieder verdecken: auch die vorher aufgedeckte Zeile
+    expect(english.nth(0)).to_have_css("color", COVERED)
+
+
+def test_ansehen_beginnt_immer_offen(page: Page, two_lists):
+    open_view(page, "test-zwei")
+    page.click("#view-cover")
+    page.click("#view-back")
+    page.locator(".view-button[data-list='test-eins']").click()
+    expect(page.locator("#view-cover")).to_have_text("Englisch verdecken")
+    expect(page.locator(".view-en")).to_have_text(["boy", "small"])  # nur die neue Liste
+    expect(page.locator(".view-en").nth(0)).not_to_have_css("color", COVERED)
+
+
+def test_ansehen_speichert_nichts(page: Page, mini_list, spoken):
+    open_mix(page)  # angefangene Portion und angefangener Test sollen bleiben
+    answer_correctly_and_continue(page, mini_list)
+    open_test(page, "test-mini")
+    answer_correctly_and_continue(page, mini_list)
+    stored = "JSON.stringify(Object.entries(localStorage).sort())"
+    before = page.evaluate(stored)
+    open_view(page, "test-mini")
+    page.locator(".view-row").nth(0).click()
+    page.click("#view-cover")
+    page.locator(".view-row").nth(1).click()
+    page.click("#view-back")
+    assert page.evaluate(stored) == before
+
+
 # ---------- Sterne ----------
 
 

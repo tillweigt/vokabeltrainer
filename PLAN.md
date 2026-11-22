@@ -4,6 +4,19 @@ Dieses Dokument fasst ein Vorgespräch zusammen. Es dient als Grundlage, um die 
 
 ---
 
+## Stand: Ansehen pro Liste (festgelegt am 22.11.2026)
+
+Ergänzt die Abschnitte „Stand: …“ darunter. Bei Widersprüchen gilt dieser Abschnitt.
+
+- Unter jeder Liste links neben dem Testknopf: **„📖 Ansehen“**. Nicht für die Super-Liste.
+- Zeigt **alle Vokabeln mit Übersetzung** als Liste zum Scrollen, zwei Spalten: Englisch (mit den Varianten aus `auch`) links, Deutsch rechts. Reihenfolge wie im Buch. Lange Einträge brechen um, seitlich wird nie gescrollt.
+- **Antippen einer Zeile** liest das Englische vor (die eigene Lösung `en`).
+- **„Englisch verdecken“** oben rechts verdeckt die englische Spalte, weil die App Deutsch → Englisch fragt. Der erste Tipp deckt eine Zeile auf, der zweite liest vor. Beim Öffnen ist immer alles zu sehen.
+- **Zurück:** „‹ Listen“ oben links bleibt beim Scrollen stehen, am Ende der Liste steht „Zur Übersicht“. Beides führt an die Stelle der Startseite zurück, von der man kam. Wischen vom Rand führt nicht zurück (wie in der Abfrage).
+- **Es wird nichts gespeichert:** keine Sterne, kein Verlauf, kein Protokoll. Kein Lernstand (●●○) in der Liste.
+
+---
+
 ## Stand: Test pro Liste (festgelegt am 22.11.2026)
 
 Ergänzt die Abschnitte „Stand: …“ darunter. Bei Widersprüchen gilt dieser Abschnitt.

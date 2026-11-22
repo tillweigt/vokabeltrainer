@@ -37,6 +37,7 @@ import {
   lastRedemptions,
   lastTestText,
   localIsoDate,
+  overviewRows,
   packTest,
   parseRedemption,
   recordAnswer,
@@ -280,6 +281,27 @@ describe("Portion speichern und fortsetzen", () => {
   test("Vokabeln, die es nicht mehr gibt, werden übersprungen", () => {
     const refs = [{ listId: "a", key: "weg" }, cardRef(cards[1])];
     assert.deepEqual(restoreQueue(refs, cards), [cards[1]]);
+  });
+});
+
+describe("overviewRows: alle Vokabeln zum Ansehen", () => {
+  test("Reihenfolge wie in der Liste, Varianten und Bedeutungen zusammengefasst", () => {
+    const rows = overviewRows({
+      id: "t",
+      items: [
+        { en: "there's", auch: ["there is"], de: ["es gibt"] },
+        { en: "busy", de: ["belebt", "beschäftigt"] },
+      ],
+    });
+    assert.deepEqual(rows, [
+      { key: "there's", english: "there's / there is", german: "es gibt" },
+      { key: "busy", english: "busy", german: "belebt / beschäftigt" },
+    ]);
+  });
+
+  test("Lösungen anderer Vokabeln mit gleicher Bedeutung stehen nicht dabei", () => {
+    const rows = overviewRows(LIST); // „Ich heiße …“ passt auf zwei Vokabeln
+    assert.deepEqual(rows.map((row) => row.english), ["I'm …", "My name is …", "boy"]);
   });
 });
 

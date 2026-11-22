@@ -101,17 +101,31 @@ button {
   color: var(--good);
 }
 
-/* Test: kleiner Knopf unter jeder Liste */
-.test-button {
-  display: block;
-  width: 100%;
-  min-height: 44px;
+/* Ansehen und Test: zwei kleine Knöpfe unter jeder Liste */
+.unit-actions {
+  display: flex;
+  gap: 8px;
   margin: -2px 0 18px;
-  padding: 8px 16px;
+}
+
+.view-button,
+.test-button {
+  min-height: 44px;
+  padding: 8px 14px;
   border: 1px solid var(--border);
   border-radius: 12px;
   background: transparent;
   color: var(--accent);
+}
+
+.view-button {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.test-button {
+  flex: 1;
+  min-width: 0;
   text-align: left;
 }
 
@@ -276,6 +290,87 @@ button {
   opacity: 0;
 }
 
+/* ---------- Ansehen: alle Vokabeln einer Liste ---------- */
+
+/* Bleibt beim Scrollen oben stehen, damit man jederzeit zurückkommt */
+.view-header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  background: var(--background);
+}
+
+#view-back {
+  min-height: 44px;
+  padding: 0 14px 0 0;
+  border: none;
+  background: none;
+  color: var(--accent);
+}
+
+#view-cover {
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--accent);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--accent);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.view-title {
+  margin: 14px 0 4px;
+  font-size: 1.15rem;
+}
+
+.view-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 0;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: none;
+  color: var(--text);
+  text-align: left;
+}
+
+.view-en,
+.view-de {
+  overflow-wrap: anywhere; /* lange Wörter wie „hundert/einhundert“ */
+}
+
+.view-en {
+  font-weight: 600;
+}
+
+.view-de {
+  color: var(--muted);
+}
+
+.covered .view-row:not(.open) .view-en {
+  border-radius: 6px;
+  background: var(--border);
+  color: transparent;
+}
+
+#view-end {
+  display: block;
+  min-width: 14rem;
+  margin: 20px auto 0;
+}
+
 /* ---------- Abfrage ---------- */
 
 .quiz-header {
@@ -365,6 +460,7 @@ button {
 #mix-back,
 #test-again,
 #test-back,
+#view-end,
 #redeem-submit,
 #redeem-yes,
 #redeem-no,
@@ -395,6 +491,7 @@ button {
 
 #mix-back,
 #test-back,
+#view-end,
 #redeem-no,
 .restore-button,
 #restore-no,

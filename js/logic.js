@@ -99,6 +99,15 @@ export function buildCards(list, allLists = [list]) {
   });
 }
 
+/** Zeilen zum Ansehen einer Liste: alle Vokabeln mit Übersetzung, Reihenfolge wie in der Liste. */
+export function overviewRows(list) {
+  return list.items.map((item) => ({
+    key: item.en,
+    english: spellingsOf(item).join(" / "),
+    german: item.de.join(" / "),
+  }));
+}
+
 /** Gibt eine gemischte Kopie zurück (Fisher-Yates). */
 export function shuffle(array, random = Math.random) {
   const copy = [...array];

@@ -4,6 +4,7 @@ Eine kleine Website zum Vokabellernen auf dem iPhone. Die deutsche Vokabel wird 
 
 - **Einzelne Liste:** Jede offene Vokabel kommt pro Durchgang einmal. Nach 3× richtig ist sie geschafft. Sind alle geschafft, zählt 🏆 eine Runde, und es geht von vorn los.
 - **🔀 Alle Englisch-Vokabeln:** Portionen zu 5 Karten aus allen Listen. Vokabeln, die zuletzt oft falsch waren, kommen öfter dran. Grundlage ist der Verlauf jeder Vokabel (`R`/`F`), Gewicht `(F + 1) / (n + 2)` über die letzten 5 Antworten. Eine angefangene Portion geht nach einer Pause weiter; wird zwischendurch in einer normalen Liste geantwortet, wird neu gezogen.
+- **📖 Ansehen:** Unter jeder Liste alle Vokabeln mit Übersetzung zum Scrollen. Antippen liest das Englische vor, „Englisch verdecken“ macht daraus eine Übung. Zurück geht es jederzeit oben links mit „‹ Listen“. Es wird nichts gespeichert.
 - **📝 Alle testen:** Unter jeder Liste ein Test mit allen Vokabeln, jede genau einmal, gemischt. Zählt für Verlauf und Sterne, aber nicht für die Punkte ●○○ und 🏆 der Liste. Am Ende steht „49 von 58 richtig“, dazu „Fehler nochmal“. Ein angefangener Test geht nach einer Pause weiter.
 - **⭐ Sterne:** Jede richtige Antwort bringt `⌈8 · 2^(−k/3)⌉` Sterne (k = wie oft die Vokabel schon richtig war, also 8, 7, 6, 4, 4, 3, 2, …, mindestens 1). Fehler bringen nichts und kosten nichts. Für eine komplett geschaffte Liste (🏆) gibt es 1 Stern pro Vokabel extra. Auf der Startseite stehen der Kontostand, ein Feld zum Einlösen und die letzten 3 Einlösungen. Die Belohnung gibt es im echten Leben.
 - **🔊 Anhören:** Nach dem Prüfen liest die eingebaute Sprachausgabe des iPhones die Lösung auf britischem Englisch vor, nur auf Knopfdruck. Ist nichts zu hören: Lautstärke und Stummschalter prüfen. Bessere Stimmen gibt es kostenlos unter *Einstellungen → Bedienungshilfen → Gesprochene Inhalte → Stimmen → Englisch*.
@@ -164,7 +165,7 @@ df["kontostand"] = df["sterne"].fillna(0).cumsum()  # ab Beginn des Protokolls
 
 | Datei | Inhalt |
 |---|---|
-| `index.html` | Die Bildschirme: Listen, Abfrage, „Liste geschafft“, Ergebnis der Super-Liste, Ergebnis des Tests |
+| `index.html` | Die Bildschirme: Listen, Ansehen, Abfrage, „Liste geschafft“, Ergebnis der Super-Liste, Ergebnis des Tests |
 | `style.css` | Aussehen, für das iPhone optimiert |
 | `js/logic.js` | Reine Logik: Antworten prüfen, Karten bilden, Durchgänge, Zählen, Verlauf, Gewicht, Portionen, Test, Sterne |
 | `js/storage.js` | Punkte, Runden, Verlauf, Sterne, angefangene Portion, Tests und Antwortprotokoll im `localStorage` speichern; alles exportieren und ersetzen für die Datensicherung |

@@ -24,6 +24,7 @@ import {
   lastRedemptions,
   lastTestText,
   localIsoDate,
+  overviewRows,
   packTest,
   parseBackup,
   parseRedemption,
@@ -84,6 +85,7 @@ const $ = (selector) => document.querySelector(selector);
 
 const screens = {
   start: $("#start"),
+  view: $("#view"),
   quiz: $("#quiz"),
   done: $("#done"),
   mixDone: $("#mix-done"),
@@ -107,6 +109,7 @@ let pendingRedemption = null; // Anzahl Sterne, die auf „Ja“ zum Einlösen w
 let pendingBackup = null; // eingelesene Sicherung, die auf „Ja, einspielen“ wartet
 let titleTaps = []; // Zeitpunkte der letzten Tipps auf die Überschrift (Geheimzugang)
 let speechTimer = null; // wartende Ausgabe nach einem Abbruch, siehe speak()
+let startScroll = 0; // wo die Startseite stand, als „Ansehen“ geöffnet wurde
 
 // ---------- Hilfsfunktionen ----------
 
@@ -246,7 +249,9 @@ function renderStart() {
   for (const subject of subjects) {
     container.append(element("h2", "", subject));
     for (const list of lists.filter((l) => l.fach === subject)) {
-      container.append(renderListButton(list), renderTestButton(list));
+      const actions = element("div", "unit-actions");
+      actions.append(renderViewButton(list), renderTestButton(list));
+      container.append(renderListButton(list), actions);
     }
   }
 }
@@ -299,6 +304,15 @@ function renderListButton(list) {
   return button;
 }
 
+/** Knopf „📖 Ansehen“ unter einer Liste */
+function renderViewButton(list) {
+  const button = element("button", "view-button", "📖 Ansehen");
+  button.type = "button";
+  button.dataset.list = list.id;
+  button.addEventListener("click", () => openView(list));
+  return button;
+}
+
 /** Knopf „📝 Alle 58 testen“ unter einer Liste, dazu das letzte Ergebnis */
 function renderTestButton(list) {
   const cards = cardsFor(list);
@@ -321,6 +335,55 @@ function renderLevels(cards, progress) {
     levels.append(level);
   });
   return levels;
+}
+
+// ---------- Ansehen: alle Vokabeln einer Liste mit Übersetzung ----------
+
+const viewList = $("#view-list");
+
+function openView(list) {
+  $("#view-title").textContent = list.titel;
+  viewList.replaceChildren(...overviewRows(list).map(renderViewRow));
+  setCovered(false);
+  startScroll = window.scrollY;
+  showScreen("view");
+  window.scrollTo(0, 0);
+}
+
+/** Zurück zur Startseite, und zwar dorthin, wo sie vorher stand. */
+function closeView() {
+  showScreen("start");
+  window.scrollTo(0, startScroll);
+}
+
+/** Antippen liest das Englische vor. Ist es verdeckt, deckt der erste Tipp die Zeile auf. */
+function renderViewRow({ key, english, german }) {
+  const row = element("button", "view-row");
+  row.type = "button";
+  const englishCell = element("span", "view-en");
+  englishCell.lang = "en";
+  englishCell.append(...breakable(english));
+  const germanCell = element("span", "view-de");
+  germanCell.append(...breakable(german));
+  row.append(englishCell, germanCell);
+  row.addEventListener("click", () => {
+    const covered = viewList.classList.contains("covered") && !row.classList.contains("open");
+    if (covered) row.classList.add("open");
+    else if ("speechSynthesis" in window) speak(key);
+  });
+  return row;
+}
+
+/** Lange Wörter dürfen nach einem Schrägstrich umbrechen: „hundert/“ + „einhundert“ */
+function breakable(text) {
+  return text.split("/").flatMap((part, i) => (i === 0 ? [part] : ["/", element("wbr"), part]));
+}
+
+/** Verdeckt die englische Spalte (auch schon aufgedeckte Zeilen) oder zeigt sie wieder. */
+function setCovered(covered) {
+  viewList.classList.toggle("covered", covered);
+  for (const row of viewList.children) row.classList.remove("open");
+  $("#view-cover").textContent = covered ? "Englisch zeigen" : "Englisch verdecken";
 }
 
 // ---------- Abfrage starten ----------
@@ -598,6 +661,12 @@ $("#mix-again").addEventListener("click", startNewMix);
 $("#mix-back").addEventListener("click", backToStart);
 $("#test-again").addEventListener("click", () => beginTest(session.list, startRetry(session)));
 $("#test-back").addEventListener("click", backToStart);
+
+// ---------- Ereignisse: Ansehen ----------
+
+$("#view-back").addEventListener("click", closeView);
+$("#view-end").addEventListener("click", closeView);
+$("#view-cover").addEventListener("click", () => setCovered(!viewList.classList.contains("covered")));
 
 // ---------- Ereignisse: Sterne einlösen ----------
 
