@@ -406,7 +406,7 @@ def test_super_liste_ganz_oben(page: Page):
     expect(first).to_have_class("list-button mix-button")
     expect(first.locator(".list-title")).to_have_text("🔀 Alle Englisch-Vokabeln")
     expect(first.locator(".list-progress")).to_have_text(
-        "168 Vokabeln aus 4 Listen · immer 5 Karten"
+        "188 Vokabeln aus 4 Listen · immer 5 Karten"
     )
 
 
@@ -669,12 +669,12 @@ def test_test_laesst_die_portion_der_super_liste_stehen(page: Page, mini_list):
 def test_test_mit_echten_listen(page: Page):
     page.goto("/")
     expect(page.locator(".test-title")).to_have_text(
-        ["📝 Alle 24 testen", "📝 Alle 29 testen", "📝 Alle 58 testen", "📝 Alle 57 testen"]
+        ["📝 Alle 24 testen", "📝 Alle 29 testen", "📝 Alle 58 testen", "📝 Alle 77 testen"]
     )
     data = json.loads((ROOT / "lists" / "en-unit-1-teil-3.json").read_text(encoding="utf-8"))
     open_test(page, "en-unit-1-teil-3")
-    assert len(play_test(page, data)) == 57
-    expect(page.locator("#test-result")).to_have_text("57 von 57 richtig")
+    assert len(play_test(page, data)) == 77
+    expect(page.locator("#test-result")).to_have_text("77 von 77 richtig")
     expect(page.locator("#error-overlay")).to_be_hidden()
 
 

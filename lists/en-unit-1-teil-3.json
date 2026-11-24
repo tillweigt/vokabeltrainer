@@ -1,6 +1,6 @@
 {
   "id": "en-unit-1-teil-3",
-  "titel": "Unit 1 – Teil 3 (S. 193–194)",
+  "titel": "Unit 1 – Teil 3 (S. 193–195)",
   "fach": "Englisch",
   "typ": "vokabel",
   "durchlauf": 1,
@@ -61,6 +61,26 @@
     { "en": "after", "de": ["nach (zeitlich)"] },
     { "en": "visit", "de": ["Besuch"] },
     { "en": "outside", "de": ["nach draußen", "draußen", "außerhalb (von)"] },
-    { "en": "awful", "de": ["schrecklich", "furchtbar"] }
+    { "en": "awful", "de": ["schrecklich", "furchtbar"] },
+    { "en": "sentence", "de": ["Satz"] },
+    { "en": "picture", "de": ["Bild", "Foto"] },
+    { "en": "right", "de": ["richtig", "korrekt"] },
+    { "en": "ending", "de": ["Ende", "Schluss (einer Geschichte)"] },
+    { "en": "around the house", "de": ["rund ums Haus", "ums Haus herum"] },
+    { "en": "What about …?", "de": ["Was ist mit …?", "Wie wär's mit …?"] },
+    { "en": "hair straightener", "de": ["Haarglätter"] },
+    { "en": "magazine", "de": ["Zeitschrift"] },
+    { "en": "book", "de": ["Buch"] },
+    { "en": "radio", "de": ["Radio"] },
+    { "en": "fast", "de": ["schnell"] },
+    { "en": "interesting", "de": ["interessant"] },
+    { "en": "exciting", "de": ["spannend", "aufregend"] },
+    { "en": "computer", "de": ["Computer"] },
+    { "en": "film", "de": ["Film"] },
+    { "en": "poster", "de": ["Poster"] },
+    { "en": "smartphone", "de": ["Smartphone"] },
+    { "en": "tablet", "de": ["Tablet"] },
+    { "en": "TV", "de": ["Fernsehen"] },
+    { "en": "to", "de": ["zu", "nach", "auf", "in", "an"] }
   ]
 }
